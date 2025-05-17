@@ -1,9 +1,13 @@
 package com.user.auth.dtos;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Getter
 public class ErrorResponse {
     private final HttpStatus status;
     private final String message;
@@ -13,14 +17,7 @@ public class ErrorResponse {
     public ErrorResponse(HttpStatus status, String message, String path) {
         this.status = status;
         this.message = message;
-        this.timestamp = LocalDateTime.now();
         this.path = path;
-    }
-
-    public ErrorResponse(HttpStatus status, String message, String path, String errorCode) {
-        this.status = status;
-        this.message = message;
         this.timestamp = LocalDateTime.now();
-        this.path = path;
     }
 }
