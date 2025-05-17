@@ -26,7 +26,7 @@ public class JwtUtils {
         return extractExpiration(token).before(new Date());
     }
 
-    private Date extractExpiration(String token) {
+    public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
 
@@ -38,13 +38,10 @@ public class JwtUtils {
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
-                .header().empty().add("alg", "HS256")
-                .and()
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 5)) // 5 minutes expiration
                 .signWith(getSignInKey())
                 .compact();
-
     }
 
     private SecretKey getSignInKey() {
@@ -69,5 +66,3 @@ public class JwtUtils {
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 }
-
-
