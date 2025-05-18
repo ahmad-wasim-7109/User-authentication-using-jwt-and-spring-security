@@ -1,4 +1,4 @@
-package com.user.auth.config;
+package com.user.auth.filter;
 
 import com.user.auth.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
@@ -66,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"Authentication failed\"}");
+            response.getWriter().write("{\"error\": \"Invalid Token\"}");
         }
     }
 }

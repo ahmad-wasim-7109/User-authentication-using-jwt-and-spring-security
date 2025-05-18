@@ -3,6 +3,7 @@ package com.user.auth.utils;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +17,8 @@ import java.util.function.Function;
 @Component
 public class JwtUtils {
 
-    public static final String SECRET_KEY = "ba869cadffe1818c985406e70a1ece0e15e128b97af1b359a6b6b7eed4b1b7a5";
+    @Value("${jwt.secret}")
+    String JWT_SECRET;
 
     public String generateToken(String username) {
         return createToken(new HashMap<>(), username);
@@ -45,7 +47,7 @@ public class JwtUtils {
     }
 
     private SecretKey getSignInKey() {
-        return Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
+        return Keys.hmacShaKeyFor(JWT_SECRET.getBytes());
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
