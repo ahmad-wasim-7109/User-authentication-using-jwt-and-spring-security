@@ -1,6 +1,7 @@
 package com.user.auth.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
@@ -13,6 +14,8 @@ import javax.sql.DataSource;
 @EnableConfigurationProperties
 public class DataSourceConfig {
 
+    @Value("${spring.datasource.url}")
+    private String jdbcUrl;
 
     @Bean
     @ConfigurationProperties(prefix = "spring.datasource")
@@ -20,7 +23,7 @@ public class DataSourceConfig {
         HikariDataSource dataSource = DataSourceBuilder.create()
                 .type(HikariDataSource.class)
                 .build();
-        dataSource.setJdbcUrl("jdbc:postgresql://localhost:5432/user_auth_db");
+        dataSource.setJdbcUrl(jdbcUrl);
         return dataSource;
     }
 }

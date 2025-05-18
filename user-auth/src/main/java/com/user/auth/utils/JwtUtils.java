@@ -13,15 +13,24 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-
 @Component
 public class JwtUtils {
 
     @Value("${jwt.secret}")
     String JWT_SECRET;
 
+    @Value("${jwt.token.expiration}")
+    long JWT_EXPIRATION;
+
+    @Value("${jwt.refresh.token.expiration}")
+    long JWT_REFRESH_EXPIRATION;
+
     public String generateToken(String username) {
-        return createToken(new HashMap<>(), username);
+        return createToken(new HashMap<>(), username, JWT_EXPIRATION);
+    }
+
+    public String generateRefreshToken(String username) {
+        return createToken(new HashMap<>(), username, JWT_REFRESH_EXPIRATION);
     }
 
     private boolean isTokenExpired(String token) {
@@ -36,12 +45,12 @@ public class JwtUtils {
         return extractClaim(token, Claims::getSubject);
     }
 
-    private String createToken(Map<String, Object> claims, String subject) {
+    private String createToken(Map<String, Object> claims, String subject, long expiration) {
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 5)) // 5 minutes expiration
+                .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey())
                 .compact();
     }
