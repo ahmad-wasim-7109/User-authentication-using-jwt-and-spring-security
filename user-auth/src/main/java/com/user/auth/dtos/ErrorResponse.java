@@ -1,12 +1,10 @@
 package com.user.auth.dtos;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @Getter
 public class ErrorResponse {
     private final HttpStatus status;
