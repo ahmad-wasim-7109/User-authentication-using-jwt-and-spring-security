@@ -5,6 +5,7 @@ import com.user.auth.entity.User;
 import com.user.auth.enums.Role;
 import com.user.auth.exception.*;
 import com.user.auth.repository.UserRepository;
+import com.user.auth.utils.HashUtil;
 import com.user.auth.utils.JwtUtils;
 import io.jsonwebtoken.lang.Assert;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Map;
 import java.util.Objects;
@@ -72,7 +75,7 @@ public class AuthenticationService {
         userRepository.save(user);
         log.info("User registered successfully: {}", request.getEmail());
         var otp = generateAndStoreOtpInRedis(request.getEmail());
-        emailService.sendOtpEmail(request.getEmail(), "OTP Verification", "Your OTP is: " + otp);
+        emailService.sendOtpEmail(request.getEmail(), otp);
         return RegisterResponse.builder()
                 .message("User registered successfully")
                 .userName(request.getEmail())
@@ -154,15 +157,26 @@ public class AuthenticationService {
         SecureRandom secureRandom = new SecureRandom();
         int otpValue = secureRandom.nextInt(900000) + 100000;
         String otp = String.valueOf(otpValue);
-        redisService.put(userName + "_otp", otp, 60 * 1000);
+        String safeKey = HashUtil.sha256Hex(userName + "_otp");
+        redisService.put(safeKey, otp, 5 * 60 * 1000);
         return otp;
     }
 
     public void verifyOtp(VerifyOtpRequest otpRequest) {
-        String storedOtp = (String) redisService.get(otpRequest.getUserName() + "_otp");
-        if (Objects.isNull(storedOtp) || !otpRequest.getOtp().equals(storedOtp)) {
-            throw new InvalidDataException("Invalid OTP");
+        String safeKey = HashUtil.sha256Hex(otpRequest.getUserName() + "_otp");
+        String storedOtp = (String) redisService.get(safeKey);
+
+        if (storedOtp == null || !MessageDigest.isEqual(
+                storedOtp.getBytes(StandardCharsets.UTF_8),
+                otpRequest.getOtp().getBytes(StandardCharsets.UTF_8))) {
+            throw new InvalidDataException("Invalid or expired OTP");
         }
-        redisService.delete(otpRequest.getUserName() + "_otp");
+
+        userRepository.findByEmail(otpRequest.getUserName())
+                .ifPresent(user -> {
+                    user.setIsEmailVerified(true);
+                    userRepository.save(user);
+                    redisService.delete(safeKey);
+                });
     }
 }

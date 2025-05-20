@@ -26,11 +26,11 @@ public class JwtUtils {
     long JWT_REFRESH_EXPIRATION;
 
     public String generateToken(String username) {
-        return createToken(new HashMap<>(), username, JWT_EXPIRATION);
+        return createToken(Map.of("type", "access"), username, JWT_EXPIRATION);
     }
 
     public String generateRefreshToken(String username) {
-        return createToken(new HashMap<>(), username, JWT_REFRESH_EXPIRATION);
+        return createToken(Map.of("type", "refresh"), username, JWT_REFRESH_EXPIRATION);
     }
 
     private boolean isTokenExpired(String token) {

@@ -10,12 +10,10 @@ import java.util.concurrent.TimeUnit;
 
 @RequiredArgsConstructor
 @Service
-@EnableAsync
 public class RedisService {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @Async
     public void put(String key, Object value) {
         redisTemplate.opsForValue().set(key, value);
     }
@@ -27,7 +25,7 @@ public class RedisService {
     public void delete(String key) {
         redisTemplate.delete(key);
     }
-    @Async
+
     public void put(String key, Object value, long timeout) {
         redisTemplate.opsForValue().set(key, value, timeout, TimeUnit.MILLISECONDS);
     }
