@@ -26,17 +26,4 @@ public class EmailService {
             log.error("Error occurred while sending mail to: {}, exception: {}", to, exception.getMessage());
         }
     }
-
-    @Async
-    public void sendOtpEmail(String to, String otp) {
-        log.info("Sending otp email to: {}, otp: {}", to, otp);
-        String subject = "Verify Your Email Address";
-        String body =  "Dear User,\n\n"
-                + "Thank you for registering! To complete your email verification, please use the following One-Time Password (OTP):\n\n"
-                + "OTP: " + otp + "\n\n"
-                + "This OTP is valid for 5 minutes. If you did not request this verification, please ignore this email.\n\n"
-                + "Best regards,\n"
-                + "SplitBillsTeam";
-        this.sendEmail(to, subject, body);
-    }
 }

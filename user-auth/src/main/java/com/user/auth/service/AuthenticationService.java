@@ -1,11 +1,14 @@
 package com.user.auth.service;
 
-import com.user.auth.dtos.*;
+import com.user.auth.dtos.LoginRequest;
+import com.user.auth.dtos.LoginResponse;
+import com.user.auth.dtos.RegisterRequest;
+import com.user.auth.dtos.RegisterResponse;
+import com.user.auth.dtos.VerifyOtpRequest;
 import com.user.auth.entity.User;
 import com.user.auth.enums.Role;
 import com.user.auth.exception.*;
 import com.user.auth.repository.UserRepository;
-import com.user.auth.utils.HashUtil;
 import com.user.auth.utils.JwtUtils;
 import io.jsonwebtoken.lang.Assert;
 import lombok.RequiredArgsConstructor;
@@ -30,9 +33,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
+import static com.user.auth.utils.HashUtil.sha256Hex;
 import static java.lang.String.format;
 import static java.util.Optional.of;
 
@@ -62,9 +65,13 @@ public class AuthenticationService {
 
     public RegisterResponse register(RegisterRequest request) {
 
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new UserAlreadyExistsException("User with this email already exists");
-        }
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            if (user.getIsEmailVerified()) {
+                throw new UserAlreadyExistsException("User with this email already exists");
+            } else {
+                userRepository.delete(user);
+            }
+        });
         User user = User.builder()
                 .email(request.getEmail())
                 .fullName(request.getFullName())
@@ -75,7 +82,7 @@ public class AuthenticationService {
         userRepository.save(user);
         log.info("User registered successfully: {}", request.getEmail());
         var otp = generateAndStoreOtpInRedis(request.getEmail());
-        emailService.sendOtpEmail(request.getEmail(), otp);
+        sendOtpEmail(request.getEmail(), otp);
         return RegisterResponse.builder()
                 .message("User registered successfully")
                 .userName(request.getEmail())
@@ -89,17 +96,28 @@ public class AuthenticationService {
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
             var user = (User) authentication.getPrincipal();
+
+            if (!user.getIsEmailVerified()) {
+                return LoginResponse.builder()
+                        .isEmailVerified(false)
+                        .userName(user.getEmail())
+                        .build();
+            }
+
             var token = jwtUtils.generateToken(user.getUsername());
             var refreshToken = jwtUtils.generateRefreshToken(user.getUsername());
+
             return LoginResponse.builder()
                     .accessToken(token)
                     .refreshToken(refreshToken)
                     .build();
+
         } catch (Exception exception) {
             log.error("Authentication failed for user: {}", request.getEmail(), exception);
             throw new InvalidCredentialsException("Invalid email or password");
         }
     }
+
 
     public LoginResponse handleGoogleCallback(String code) {
         try {
@@ -119,25 +137,21 @@ public class AuthenticationService {
             HttpEntity<MultiValueMap<String, String>> httpEntity = new HttpEntity<>(params, headers);
             ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(tokenEndpoint, httpEntity, Map.class);
 
-            var tokenId = extractParam(tokenResponse, "id_token", "ID token not found in response");
+            final var tokenId = extractParam(tokenResponse, "id_token", "ID token not found in response");
 
             String userInfoUrl = format(OAUTH_2_GOOGLE_APIS_TOKEN_URL, tokenId);
             ResponseEntity<Map> userInfoResponse = restTemplate.getForEntity(userInfoUrl, Map.class);
-            var email = extractParam(userInfoResponse, "email", "Email not found in user info response");
+            final var email = extractParam(userInfoResponse, "email", "Email not found in user info response");
 
             try {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
             } catch (UsernameNotFoundException exception) {
-                User user = User.builder()
-                        .email(email)
-                        .fullName(email.split("@")[0])
-                        .role(Role.USER)
-                        .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                        .build();
+                User user = User.builder().email(email).fullName(email.split("@")[0]).role(Role.USER)
+                        .password(passwordEncoder.encode(UUID.randomUUID().toString())).build();
                 userRepository.save(user);
             }
-            var token = jwtUtils.generateToken(email);
-            var refreshToken = jwtUtils.generateRefreshToken(email);
+            final var token = jwtUtils.generateToken(email);
+            final var refreshToken = jwtUtils.generateRefreshToken(email);
             return LoginResponse.builder().accessToken(token).refreshToken(refreshToken).build();
         } catch (Exception exception) {
             log.error("Error during Google authentication", exception);
@@ -155,16 +169,16 @@ public class AuthenticationService {
 
     public String generateAndStoreOtpInRedis(String userName) {
         SecureRandom secureRandom = new SecureRandom();
-        int otpValue = secureRandom.nextInt(900000) + 100000;
-        String otp = String.valueOf(otpValue);
-        String safeKey = HashUtil.sha256Hex(userName + "_otp");
+        final var otpValue = secureRandom.nextInt(900000) + 100000;
+        final var otp = String.valueOf(otpValue);
+        final var safeKey = sha256Hex(userName + "_otp");
         redisService.put(safeKey, otp, 5 * 60 * 1000);
         return otp;
     }
 
     public void verifyOtp(VerifyOtpRequest otpRequest) {
-        String safeKey = HashUtil.sha256Hex(otpRequest.getUserName() + "_otp");
-        String storedOtp = (String) redisService.get(safeKey);
+        final var redisKey = sha256Hex(otpRequest.getUserName() + "_otp");
+        final var storedOtp = (String) redisService.get(redisKey);
 
         if (storedOtp == null || !MessageDigest.isEqual(
                 storedOtp.getBytes(StandardCharsets.UTF_8),
@@ -176,7 +190,27 @@ public class AuthenticationService {
                 .ifPresent(user -> {
                     user.setIsEmailVerified(true);
                     userRepository.save(user);
-                    redisService.delete(safeKey);
+                    redisService.delete(redisKey);
                 });
+    }
+
+    public void resendOtp(String email) {
+        Assert.hasText(email, "Email must not be empty");
+        userRepository.findByEmail(email).filter(user -> !user.getIsEmailVerified())
+                .orElseThrow(() -> new InvalidDataException("User is not present/user is verified"));
+        final var otp = generateAndStoreOtpInRedis(email);
+        sendOtpEmail(email, otp);
+    }
+
+    public void sendOtpEmail(String to, String otp) {
+        log.info("Sending otp email to: {}, otp: {}", to, otp);
+        String subject = "Verify Your Email Address";
+        String body = "Dear User,\n\n"
+                + "Thank you for registering! To complete your email verification, please use the following One-Time Password (OTP):\n\n"
+                + "OTP: " + otp + "\n\n"
+                + "This OTP is valid for 5 minutes. If you did not request this verification, please ignore this email.\n\n"
+                + "Best regards,\n"
+                + "SplitBillsTeam";
+        emailService.sendEmail(to, subject, body);
     }
 }

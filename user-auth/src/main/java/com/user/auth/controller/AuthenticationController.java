@@ -47,4 +47,10 @@ public class AuthenticationController {
         authenticationService.verifyOtp(verifyOtpRequest);
         return ResponseEntity.ok("OTP verified successfully");
     }
+
+    @GetMapping(value = "/resend-otp", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> resendOtp(@RequestParam String userName) {
+        authenticationService.resendOtp(userName);
+        return ResponseEntity.ok().build();
+    }
 }
