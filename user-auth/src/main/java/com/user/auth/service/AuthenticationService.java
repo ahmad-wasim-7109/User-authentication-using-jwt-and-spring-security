@@ -1,14 +1,9 @@
 package com.user.auth.service;
 
-import com.user.auth.dtos.LoginRequest;
-import com.user.auth.dtos.LoginResponse;
-import com.user.auth.dtos.RegisterRequest;
+import com.user.auth.dtos.*;
 import com.user.auth.entity.User;
 import com.user.auth.enums.Role;
-import com.user.auth.exception.InternalServerErrorException;
-import com.user.auth.exception.InvalidCredentialsException;
-import com.user.auth.exception.MissingParameterException;
-import com.user.auth.exception.UserAlreadyExistsException;
+import com.user.auth.exception.*;
 import com.user.auth.repository.UserRepository;
 import com.user.auth.utils.JwtUtils;
 import io.jsonwebtoken.lang.Assert;
@@ -30,7 +25,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.security.SecureRandom;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import static java.lang.String.format;
@@ -48,6 +45,8 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final RestTemplate restTemplate;
+    private final RedisService redisService;
+    private final EmailService emailService;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String clientId;
@@ -58,8 +57,7 @@ public class AuthenticationService {
     @Value("${spring.security.oauth2.client.registration.google.redirect-uri}")
     private String redirectUri;
 
-    // Method to register a new user
-    public void register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request) {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new UserAlreadyExistsException("User with this email already exists");
@@ -68,9 +66,18 @@ public class AuthenticationService {
                 .email(request.getEmail())
                 .fullName(request.getFullName())
                 .password(passwordEncoder.encode(request.getPassword()))
+                .isEmailVerified(false)
                 .role(Role.valueOf(request.getRole()))
                 .build();
         userRepository.save(user);
+        log.info("User registered successfully: {}", request.getEmail());
+        var otp = generateAndStoreOtpInRedis(request.getEmail());
+        emailService.sendOtpEmail(request.getEmail(), "OTP Verification", "Your OTP is: " + otp);
+        return RegisterResponse.builder()
+                .message("User registered successfully")
+                .userName(request.getEmail())
+                .fullName(request.getFullName())
+                .isEmailVerified(false).build();
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -141,5 +148,21 @@ public class AuthenticationService {
                 .filter(body -> body.containsKey(key))
                 .map(body -> (String) body.get(key))
                 .orElseThrow(() -> new MissingParameterException(errorMessage));
+    }
+
+    public String generateAndStoreOtpInRedis(String userName) {
+        SecureRandom secureRandom = new SecureRandom();
+        int otpValue = secureRandom.nextInt(900000) + 100000;
+        String otp = String.valueOf(otpValue);
+        redisService.put(userName + "_otp", otp, 60 * 1000);
+        return otp;
+    }
+
+    public void verifyOtp(VerifyOtpRequest otpRequest) {
+        String storedOtp = (String) redisService.get(otpRequest.getUserName() + "_otp");
+        if (Objects.isNull(storedOtp) || !otpRequest.getOtp().equals(storedOtp)) {
+            throw new InvalidDataException("Invalid OTP");
+        }
+        redisService.delete(otpRequest.getUserName() + "_otp");
     }
 }

@@ -30,9 +30,11 @@ public class User implements UserDetails {
     @Column(unique = true, length = 100, nullable = false)
     private String email;
 
-    @Getter
     @Column(nullable = false)
     private String password;
+
+    @Column(name = "is_email_verified", nullable = false)
+    private Boolean isEmailVerified;
 
     @Enumerated(EnumType.STRING)
     private Role role;
