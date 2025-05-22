@@ -1,10 +1,6 @@
 package com.user.auth.controller;
 
-import com.user.auth.dtos.LoginRequest;
-import com.user.auth.dtos.LoginResponse;
-import com.user.auth.dtos.RegisterRequest;
-import com.user.auth.dtos.RegisterResponse;
-import com.user.auth.dtos.VerifyOtpRequest;
+import com.user.auth.dtos.*;
 import com.user.auth.service.AuthenticationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -52,5 +48,11 @@ public class AuthenticationController {
     public ResponseEntity<Void> resendOtp(@RequestParam String userName) {
         authenticationService.resendOtp(userName);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping(value = "/refresh-token", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LoginResponse> refreshToken(@RequestBody @Valid RefreshTokenRequest refreshTokenRequest) {
+        LoginResponse loginResponse = authenticationService.refreshToken(refreshTokenRequest.refreshToken());
+        return ResponseEntity.ok(loginResponse);
     }
 }

@@ -1,15 +1,12 @@
 package com.user.auth.service;
 
-import com.user.auth.dtos.LoginRequest;
-import com.user.auth.dtos.LoginResponse;
-import com.user.auth.dtos.RegisterRequest;
-import com.user.auth.dtos.RegisterResponse;
-import com.user.auth.dtos.VerifyOtpRequest;
+import com.user.auth.dtos.*;
 import com.user.auth.entity.User;
 import com.user.auth.enums.Role;
 import com.user.auth.exception.*;
 import com.user.auth.repository.UserRepository;
 import com.user.auth.utils.JwtUtils;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.lang.Assert;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +29,9 @@ import org.springframework.web.client.RestTemplate;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.Date;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import static com.user.auth.utils.HashUtil.sha256Hex;
@@ -62,10 +61,12 @@ public class AuthenticationService {
     private String tokenEndpoint;
     @Value("${spring.security.oauth2.client.registration.google.redirect-uri}")
     private String redirectUri;
+    @Value("${jwt.refresh.token.expiration}")
+    long JWT_REFRESH_EXPIRATION;
 
     public RegisterResponse register(RegisterRequest request) {
 
-        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+        userRepository.findByEmail(request.email()).ifPresent(user -> {
             if (user.getIsEmailVerified()) {
                 throw new UserAlreadyExistsException("User with this email already exists");
             } else {
@@ -73,27 +74,27 @@ public class AuthenticationService {
             }
         });
         User user = User.builder()
-                .email(request.getEmail())
-                .fullName(request.getFullName())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .email(request.email())
+                .fullName(request.fullName())
+                .password(passwordEncoder.encode(request.password()))
                 .isEmailVerified(false)
-                .role(Role.valueOf(request.getRole()))
+                .role(Role.valueOf(request.role()))
                 .build();
         userRepository.save(user);
-        log.info("User registered successfully: {}", request.getEmail());
-        var otp = generateAndStoreOtpInRedis(request.getEmail());
-        sendOtpEmail(request.getEmail(), otp);
+        log.info("User registered successfully: {}", request.email());
+        var otp = generateAndStoreOtpInRedis(request.email());
+        sendOtpEmail(request.email(), otp);
         return RegisterResponse.builder()
                 .message("User registered successfully")
-                .userName(request.getEmail())
-                .fullName(request.getFullName())
+                .userName(request.email())
+                .fullName(request.fullName())
                 .isEmailVerified(false).build();
     }
 
     public LoginResponse login(LoginRequest request) {
         try {
             var authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+                    new UsernamePasswordAuthenticationToken(request.email(), request.password()));
 
             var user = (User) authentication.getPrincipal();
 
@@ -106,14 +107,16 @@ public class AuthenticationService {
 
             var token = jwtUtils.generateToken(user.getUsername());
             var refreshToken = jwtUtils.generateRefreshToken(user.getUsername());
-
+            final var redisRefreshKey = sha256Hex(user.getEmail() + "_refresh_token");
+            redisService.put(redisRefreshKey, refreshToken,
+                    new Date(System.currentTimeMillis() + JWT_REFRESH_EXPIRATION).getTime());
             return LoginResponse.builder()
                     .accessToken(token)
                     .refreshToken(refreshToken)
                     .build();
 
         } catch (Exception exception) {
-            log.error("Authentication failed for user: {}", request.getEmail(), exception);
+            log.error("Authentication failed for user: {}", request.email(), exception);
             throw new InvalidCredentialsException("Invalid email or password");
         }
     }
@@ -177,16 +180,16 @@ public class AuthenticationService {
     }
 
     public void verifyOtp(VerifyOtpRequest otpRequest) {
-        final var redisKey = sha256Hex(otpRequest.getUserName() + "_otp");
+        final var redisKey = sha256Hex(otpRequest.userName() + "_otp");
         final var storedOtp = (String) redisService.get(redisKey);
 
         if (storedOtp == null || !MessageDigest.isEqual(
                 storedOtp.getBytes(StandardCharsets.UTF_8),
-                otpRequest.getOtp().getBytes(StandardCharsets.UTF_8))) {
+                otpRequest.otp().getBytes(StandardCharsets.UTF_8))) {
             throw new InvalidDataException("Invalid or expired OTP");
         }
 
-        userRepository.findByEmail(otpRequest.getUserName())
+        userRepository.findByEmail(otpRequest.userName())
                 .ifPresent(user -> {
                     user.setIsEmailVerified(true);
                     userRepository.save(user);
@@ -212,5 +215,36 @@ public class AuthenticationService {
                 + "Best regards,\n"
                 + "SplitBillsTeam";
         emailService.sendEmail(to, subject, body);
+    }
+
+    public LoginResponse refreshToken(String refreshToken) {
+        Assert.hasText(refreshToken, "Refresh token must not be empty");
+        try {
+            final var userName = jwtUtils.extractUsername(refreshToken);
+            if (userName == null) {
+                throw new InvalidDataException("Invalid refresh token");
+            }
+            if (!jwtUtils.isTokenValid(refreshToken)) {
+                throw new InvalidDataException("Refresh token has expired");
+            }
+            final var refreshKey = sha256Hex(userName + "_refresh_token");
+            String storedToken = redisService.get(refreshKey);
+
+            if (!Objects.equals(storedToken, refreshToken)) {
+                throw new InvalidDataException("Refresh token mismatch or not found");
+            }
+            String newAccessToken = jwtUtils.generateToken(userName);
+            return LoginResponse.builder()
+                    .accessToken(newAccessToken)
+                    .refreshToken(refreshToken)
+                    .build();
+
+        } catch (JwtException e) {
+            log.error("JWT error during refresh token", e);
+            throw new InvalidDataException("Invalid refresh token");
+        } catch (Exception e) {
+            log.error("Unexpected error during refresh token", e);
+            throw new InternalServerErrorException("Unexpected error during refresh token");
+        }
     }
 }

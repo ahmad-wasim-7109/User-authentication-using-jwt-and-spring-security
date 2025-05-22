@@ -35,6 +35,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String jwt = authorizationHeader.substring(7);
         try {
+            if (!jwtUtils.isValidAccessToken(jwt)) {
+                setInvalidTokenResponse(response);
+                return;
+            }
             final String userName = jwtUtils.extractUsername(jwt);
 
             if (userName != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -47,7 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                if (jwtUtils.isTokenValid(jwt, userDetails)) {
+                if (jwtUtils.isTokenValid(jwt)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
@@ -64,9 +68,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.setContentType("application/json");
             response.getWriter().write("{\"error\": \"Token has expired\"}");
         } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"Invalid Token\"}");
+            setInvalidTokenResponse(response);
         }
+    }
+
+    public void setInvalidTokenResponse(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\": \"Invalid Token\"}");
     }
 }

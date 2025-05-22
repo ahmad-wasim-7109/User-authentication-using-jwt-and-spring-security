@@ -1,9 +1,9 @@
 package com.user.auth.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -13,13 +13,19 @@ import java.util.concurrent.TimeUnit;
 public class RedisService {
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     public void put(String key, Object value) {
         redisTemplate.opsForValue().set(key, value);
     }
 
-    public Object get(String key) {
-        return redisTemplate.opsForValue().get(key);
+    public String get(String key) {
+        return (String) redisTemplate.opsForValue().get(key);
+    }
+
+    public <T> T get(String key, Class<T> clazz) throws JsonProcessingException {
+        final String value = get(key);
+        return objectMapper.readValue(value, clazz);
     }
 
     public void delete(String key) {
