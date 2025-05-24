@@ -10,6 +10,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -18,6 +21,9 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
+@Getter
+@Setter
+@Builder
 @Table(name = "groups")
 public class Group {
 
@@ -32,12 +38,6 @@ public class Group {
 
     @OneToMany(mappedBy = "groupMemberId.group", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<GroupMember> members;
-
-    @OneToMany(mappedBy = "group", orphanRemoval = true, fetch = FetchType.EAGER)
-    private Set<Expense> expenses;
-
-    @OneToMany(mappedBy = "group", orphanRemoval = true)
-    private Set<Invitation> invitations;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", referencedColumnName = "id")

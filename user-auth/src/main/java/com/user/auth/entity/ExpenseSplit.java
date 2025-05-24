@@ -28,8 +28,7 @@ public class ExpenseSplit {
     @Column(name = "amount_owed", nullable = false)
     private Double amountOwed;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "owed_by", referencedColumnName = "id",  nullable = false)
+    @Column(name = "owed_by", nullable = false)
     private User owedBy;
 
     @CreationTimestamp

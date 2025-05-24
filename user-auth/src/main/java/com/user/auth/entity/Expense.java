@@ -1,17 +1,6 @@
 package com.user.auth.entity;
 
-import com.user.auth.enums.SplitType;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -31,13 +20,11 @@ public class Expense {
     @Column(nullable = false)
     private Double totalAmount;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "split_type", nullable = false)
-    private SplitType splitType;
+    @Column(name = "paid_by", nullable = false)
+    private String paidBy;
 
-    @ManyToOne
-    @JoinColumn(name = "paid_by", nullable = false)
-    private User paidBy;
+    @Column(name = "created_by", nullable = false)
+    private User createdBy;
 
     @ManyToOne
     @JoinColumn(name = "group_id", referencedColumnName = "id")
