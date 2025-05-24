@@ -4,7 +4,7 @@ import com.user.auth.dtos.*;
 import com.user.auth.entity.User;
 import com.user.auth.enums.Role;
 import com.user.auth.exception.*;
-import com.user.auth.repository.UserRepository;
+import com.user.auth.dao.UserRepository;
 import com.user.auth.utils.JwtUtils;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.lang.Assert;

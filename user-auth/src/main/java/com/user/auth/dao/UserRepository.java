@@ -1,4 +1,4 @@
-package com.user.auth.repository;
+package com.user.auth.dao;
 
 import com.user.auth.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;

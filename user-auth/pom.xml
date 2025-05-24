@@ -120,6 +120,12 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 			<version>3.4.5</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-ui -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-ui</artifactId>
+			<version>1.7.0</version>
+		</dependency>
 
 	</dependencies>
 
