@@ -2,6 +2,7 @@ package com.user.auth.controller;
 
 import com.user.auth.dtos.GroupCreationRequest;
 import com.user.auth.dtos.GroupCreationResponse;
+import com.user.auth.dtos.GroupUpdateRequest;
 import com.user.auth.service.SplitGroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -31,19 +32,18 @@ public class SplitGroupController {
     @PostMapping(value = "/create", produces = {MediaType.APPLICATION_JSON_VALUE}, consumes =
             {MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<GroupCreationResponse> createSplit(@Valid @RequestBody GroupCreationRequest groupCreationRequest) {
-        splitGroupService.createSplit(groupCreationRequest);
-        return ResponseEntity.ok(splitGroupService.createSplit(groupCreationRequest));
+        return ResponseEntity.ok(splitGroupService.createGroup(groupCreationRequest));
     }
 
     @Operation(summary = "Update group information")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
             schema = @Schema(implementation = String.class)), description = "Successful operation"),
             @ApiResponse(responseCode = "400", description = "Bad Request")})
-    @PostMapping(value = "/{groupId}/update", produces = MediaType.APPLICATION_JSON_VALUE, consumes =
+    @PostMapping(value = "/update", produces = MediaType.APPLICATION_JSON_VALUE, consumes =
             MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> updateGroup() {
-        log.info("Update Group Controller");
-        return ResponseEntity.ok("Group Updated");
+    public ResponseEntity<Void> updateGroup(@Valid @RequestBody GroupUpdateRequest groupUpdateRequest) {
+        splitGroupService.updateGroupInformation(groupUpdateRequest);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Delete group")
@@ -52,9 +52,9 @@ public class SplitGroupController {
             @ApiResponse(responseCode = "400", description = "Bad Request")})
     @DeleteMapping(value = "/{groupId}/delete", produces = MediaType.APPLICATION_JSON_VALUE, consumes =
             MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> deleteGroup() {
-        log.info("Delete Group Controller");
-        return ResponseEntity.ok("Group Deleted");
+    public ResponseEntity<Void> deleteGroup(@PathVariable String groupId) {
+        splitGroupService.deleteGroup(groupId);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Get group information")

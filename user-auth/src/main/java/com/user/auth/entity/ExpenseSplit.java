@@ -1,12 +1,7 @@
 package com.user.auth.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.user.auth.enums.SettlementStatus;
+import jakarta.persistence.*;
 import lombok.Getter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -28,8 +23,12 @@ public class ExpenseSplit {
     @Column(name = "amount_owed", nullable = false)
     private Double amountOwed;
 
-    @Column(name = "owed_by", nullable = false)
+    @JoinColumn(name = "owed_by", referencedColumnName = "id", nullable = false)
     private User owedBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "settlement_status", nullable = false)
+    private SettlementStatus status;
 
     @CreationTimestamp
     @Column(updatable = false, name = "created_at")

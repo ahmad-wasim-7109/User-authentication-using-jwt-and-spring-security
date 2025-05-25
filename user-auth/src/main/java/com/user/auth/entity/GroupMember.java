@@ -1,10 +1,13 @@
 package com.user.auth.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -12,6 +15,7 @@ import java.util.Date;
 
 @Data
 @Entity
+@NoArgsConstructor
 @Table(name = "group_members")
 public class GroupMember {
 
@@ -22,7 +26,6 @@ public class GroupMember {
     @Column(name = "joined_at")
     private Date joinedAt;
 
-    @UpdateTimestamp
     @Column(name = "is_active")
-    private Boolean isActive;
+    private boolean isActive;
 }

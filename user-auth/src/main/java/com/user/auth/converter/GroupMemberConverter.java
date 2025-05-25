@@ -15,7 +15,7 @@ public class GroupMemberConverter {
         GroupMember groupMember = new GroupMember();
         groupMember.setGroupMemberId(groupMemberId);
         groupMember.setJoinedAt(new Date());
-        groupMember.setIsActive(true);
+        groupMember.setActive(true);
         return groupMember;
     }
 }

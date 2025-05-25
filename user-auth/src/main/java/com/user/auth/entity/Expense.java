@@ -1,12 +1,14 @@
 package com.user.auth.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.util.Date;
 import java.util.Set;
 
+@Data
 @Entity
 @Table(name = "expenses")
 public class Expense {
