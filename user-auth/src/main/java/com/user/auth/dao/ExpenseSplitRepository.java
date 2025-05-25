@@ -11,4 +11,8 @@ public interface ExpenseSplitRepository extends JpaRepository<ExpenseSplit, Stri
 
     @Query("SELECT es FROM ExpenseSplit es WHERE es.expense.id IN ?1 AND es.status = 'PENDING'")
     List<ExpenseSplit> findAllByExpenseIdInAndStatusPending(List<String> groupId);
+
+    void deleteAllById(List<ExpenseSplit> expenseSplits);
+
+    List<ExpenseSplit> findAllByExpenseId(String id);
 }

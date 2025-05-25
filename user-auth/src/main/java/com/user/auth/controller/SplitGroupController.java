@@ -76,13 +76,15 @@ public class SplitGroupController {
             MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> getAllGroup() {
         log.info("Get All Group Controller");
-        return ResponseEntity.ok("All Group Retrieved");
+        return ResponseEntity.ok(splitGroupService.fetchAllGroupDetails());
     }
 
     @Operation(summary = "Fetch group members split expense details")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
             schema = @Schema(implementation = String.class)), description = "Successful operation"),
             @ApiResponse(responseCode = "400", description = "Bad Request")})
+    @GetMapping(value = "/all-group", produces = MediaType.APPLICATION_JSON_VALUE, consumes =
+            MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> getGroupMemberExpense() {
         log.info("Get Group Member Expense Controller");
         return ResponseEntity.ok("Group Member Expense Retrieved");

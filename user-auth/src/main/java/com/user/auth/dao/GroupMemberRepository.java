@@ -11,7 +11,7 @@ import java.util.Optional;
 public interface GroupMemberRepository extends JpaRepository<GroupMember, String> {
 
     @Query("SELECT gm FROM GroupMember gm WHERE gm.groupMemberId.groupId = ?1 AND gm.groupMemberId.memberEmail = ?2 AND gm.isActive = ?3")
-    Optional<GroupMember> findByGroupIdMemberEmailAndIsActive(String groupId, Object email, boolean isActive);
+    Optional<GroupMember> findByGroupIdMemberEmailAndIsActive(String groupId, String email, boolean isActive);
 
     @Query("DELETE FROM GroupMember gm WHERE gm.groupMemberId.groupId = ?1")
     void deleteAllByGroupId(String groupId);

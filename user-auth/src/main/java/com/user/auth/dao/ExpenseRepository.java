@@ -12,4 +12,5 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
 
     List<Expense> findAllByGroupId(String groupId);
     void deleteAllByGroupId(List<String> groupIds);
+
 }

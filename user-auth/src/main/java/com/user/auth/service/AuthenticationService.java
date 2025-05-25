@@ -96,7 +96,7 @@ public class AuthenticationService {
             var authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
 
-            var user = (User) authentication.getPrincipal();
+            final var user = (User) authentication.getPrincipal();
 
             if (!user.getIsEmailVerified()) {
                 return LoginResponse.builder()
