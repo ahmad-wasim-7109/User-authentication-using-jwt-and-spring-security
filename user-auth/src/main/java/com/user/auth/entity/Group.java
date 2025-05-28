@@ -35,14 +35,14 @@ public class Group {
 
     @OneToMany(mappedBy = "groupMemberId.group", fetch = FetchType.EAGER, orphanRemoval = true)
     @EqualsAndHashCode.Exclude
-    private Set<GroupMember> groupMembers = new HashSet<>();
+    private Set<GroupMember> members = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", referencedColumnName = "id")
     private User createdBy;
 
     @CreationTimestamp
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private Date createdAt;
 
     @UpdateTimestamp

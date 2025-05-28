@@ -20,6 +20,6 @@ public class GroupMemberId implements Serializable {
     @JsonIgnoreProperties({"groupMember"})
     private Group group;
 
-    @Column(name = "member_email", nullable = false)
+    @Column(name = "member_email")
     private String memberEmail;
 }

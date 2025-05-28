@@ -51,7 +51,7 @@ public class SplitGroupService {
 
     private List<GroupMemberDTO> getGroupMembersAndSendNotification(Group group) {
 
-        return group.getGroupMembers().stream().filter(groupMember -> groupMember.isActive() && !groupMember.getGroupMemberId().getMemberEmail().equals(group.getCreatedBy().getEmail()))
+        return group.getMembers().stream().filter(groupMember -> groupMember.isActive() && !groupMember.getGroupMemberId().getMemberEmail().equals(group.getCreatedBy().getEmail()))
                 .map(groupMember -> {
                     GroupMemberDTO groupMemberDto;
                     User user = userRepository.findByEmail(groupMember.getGroupMemberId().getMemberEmail()).orElse(null);
@@ -64,8 +64,6 @@ public class SplitGroupService {
                                 .build();
                     } else {
                         groupMemberDto = GroupMemberDTO.builder()
-                                .userId(null)
-                                .fullName(null)
                                 .email(groupMember.getGroupMemberId().getMemberEmail())
                                 .isActive(false)
                                 .build();
@@ -84,9 +82,9 @@ public class SplitGroupService {
         group.setCreatedBy(user);
         group.setCreatedAt(new Date());
         group.setUpdatedAt(new Date());
-
+        groupRepository.save(group);
         Set<GroupMember> groupMembers = getGroupMembers(groupCreationRequest.getMembers(), group);
-        group.setGroupMembers(groupMembers);
+        group.setMembers(groupMembers);
         return group;
     }
 
@@ -148,48 +146,48 @@ public class SplitGroupService {
     }
 
     public GroupExpenseDTO convertToGroupExpenseDTO(Group group) {
-        return new GroupExpenseDTO();
+
+
+        GroupExpenseDTO dto = new GroupExpenseDTO();
+        dto.setId(group.getId());
+        dto.setGroupName(group.getName());
+        dto.setDescription(group.getDescription());
+        dto.setCreatedBy(group.getCreatedBy().getEmail());
+        dto.setMembers(group.getMembers().stream()
+                .map(member -> {
+                    GroupMemberDTO memberDTO = new GroupMemberDTO();
+                    memberDTO.setEmail(member.getGroupMemberId().getMemberEmail());
+                    memberDTO.setIsActive(member.isActive());
+                    return memberDTO;
+                })
+                .toList());
+
+
+        List<Expense> expenses = expenseRepository.findAllByGroupId(group.getId());
+        dto.setExpenseSplits(expenses.stream()
+                .map(expense -> {
+                    ExpenseDTO expenseDTO = new ExpenseDTO();
+                    expenseDTO.setExpenseId(expense.getId());
+                    expenseDTO.setDescription(expense.getDescription());
+                    expenseDTO.setExpenseAmount(expense.getTotalAmount());
+                    expenseDTO.setPaidBy(GroupMemberDTO.builder().email(expense.getPaidBy()).build());
+                    expenseDTO.setCreatedAt(expense.getCreatedAt());
+
+                    List<ExpenseSplit> splits = expenseSplitRepository.findAllByExpenseId(expense.getId());
+                    expenseDTO.setExpenseSplits(splits.stream()
+                            .map(split -> {
+                                ExpenseSplitDTO splitDTO = new ExpenseSplitDTO();
+                                splitDTO.setExpenseSplitId(split.getId());
+                                splitDTO.setAmountOwed(split.getAmountOwed());
+                                splitDTO.setSplitAt(split.getCreatedAt());
+                                splitDTO.setSettled(split.getStatus() == SettlementStatus.SETTLED);
+                                return splitDTO;
+                            })
+                            .toList());
+
+                    return expenseDTO;
+                })
+                .toList());
+        return dto;
     }
-//        GroupExpenseDTO dto = new GroupExpenseDTO();
-//        dto.setId(group.getId());
-//        dto.setGroupName(group.getName());
-//        dto.setDescription(group.getDescription());
-//        dto.setCreatedBy(group.getCreatedBy().getEmail());
-//        dto.setMembers(group.getGroupMembers().stream()
-//                .map(member -> {
-//                    GroupMemberDTO memberDTO = new GroupMemberDTO();
-//                    memberDTO.setEmail(member.getGroupMemberId().getMemberEmail());
-//                    memberDTO.setIsActive(member.isActive());
-//                    return memberDTO;
-//                })
-//                .toList());
-//
-//
-//        List<Expense> expenses = expenseRepository.findAllByGroupId(group.getId());
-//        dto.setExpenseSplits(expenses.stream()
-//                .map(expense -> {
-//                    ExpenseDTO expenseDTO = new ExpenseDTO();
-//                    expenseDTO.setExpenseId(expense.getId());
-//                    expenseDTO.setDescription(expense.getDescription());
-//                    expenseDTO.setExpenseAmount(expense.getTotalAmount());
-//                    expenseDTO.setPaidBy(expense.getPaidBy());
-//                    expenseDTO.setCreatedAt(expense.getCreatedAt());
-//
-//                    List<ExpenseSplit> splits = expenseSplitRepository.findAllByExpenseId(expense.getId());
-//                    expenseDTO.setExpenseSplits(splits.stream()
-//                            .map(split -> {
-//                                ExpenseSplitDTO splitDTO = new ExpenseSplitDTO();
-//                                splitDTO.setExpenseSplitId(split.getId());
-//                                splitDTO.setAmountOwed(split.getAmountOwed());
-//                                splitDTO.setSplitAt(split.getCreatedAt());
-//                                splitDTO.setSettled(split.getStatus() == SettlementStatus.SETTLED);
-//                                return splitDTO;
-//                            })
-//                            .toList());
-//
-//                    return expenseDTO;
-//                })
-//                .toList());
-//        return dto;
-//    }
 }
