@@ -12,6 +12,5 @@ import lombok.Data;
 public class LoginResponse {
     private String accessToken;
     private String refreshToken;
-    private Boolean isEmailVerified;
-    private String userName;
+    private GroupMemberDTO user;
 }

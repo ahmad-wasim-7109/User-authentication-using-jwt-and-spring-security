@@ -62,32 +62,33 @@ public class AuthenticationController {
         return ResponseEntity.ok(loginResponse);
     }
 
-    @Operation(summary = "Verify otp")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-            schema = @Schema(implementation = String.class)), description = "Successful operation"),
-            @ApiResponse(responseCode = "400", description = "Bad Request")})
-
-    @PostMapping(value = "/verify-otp", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> verifyOtp(@RequestBody @Valid VerifyOtpRequest verifyOtpRequest) {
+    @Operation(summary = "Verify OTP")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "OTP verified successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid OTP or request data")
+    })
+    @PostMapping("/verify-otp")
+    public ResponseEntity<Void> verifyOtp(@RequestBody @Valid VerifyOtpRequest verifyOtpRequest) {
         authenticationService.verifyOtp(verifyOtpRequest);
-        return ResponseEntity.ok("OTP verified successfully");
+        return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Resend otp")
-    @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-            schema = @Schema(implementation = String.class)), description = "Successful operation"),
-            @ApiResponse(responseCode = "400", description = "Bad Request")})
-    @GetMapping(value = "/resend-otp", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> resendOtp(@RequestParam String userName) {
+    @Operation(summary = "Resend OTP to the user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "OTP resent successfully with no content returned"),
+            @ApiResponse(responseCode = "400", description = "Bad Request - Invalid or missing parameters")
+    })
+    @GetMapping("/resend-otp")
+    public ResponseEntity<Void> resendOtp(@RequestParam String userName) {
         authenticationService.resendOtp(userName);
-        return ResponseEntity.ok("OTP resend successfully");
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Generate jwt token from refresh token")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
             schema = @Schema(implementation = LoginResponse.class)), description = "Successful operation"),
             @ApiResponse(responseCode = "400", description = "Bad Request")})
-    @PostMapping(value = "/refresh-token", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/refresh-token", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<LoginResponse> refreshToken(@RequestBody @Valid RefreshTokenRequest refreshTokenRequest) {
         LoginResponse loginResponse = authenticationService.refreshToken(refreshTokenRequest.refreshToken());
         return ResponseEntity.ok(loginResponse);

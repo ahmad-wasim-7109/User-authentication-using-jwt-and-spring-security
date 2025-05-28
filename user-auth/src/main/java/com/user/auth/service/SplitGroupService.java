@@ -148,46 +148,48 @@ public class SplitGroupService {
     }
 
     public GroupExpenseDTO convertToGroupExpenseDTO(Group group) {
-        GroupExpenseDTO dto = new GroupExpenseDTO();
-        dto.setId(group.getId());
-        dto.setGroupName(group.getName());
-        dto.setDescription(group.getDescription());
-        dto.setCreatedBy(group.getCreatedBy().getEmail());
-        dto.setMembers(group.getGroupMembers().stream()
-                .map(member -> {
-                    GroupMemberDTO memberDTO = new GroupMemberDTO();
-                    memberDTO.setEmail(member.getGroupMemberId().getMemberEmail());
-                    memberDTO.setIsActive(member.isActive());
-                    return memberDTO;
-                })
-                .toList());
-
-
-        List<Expense> expenses = expenseRepository.findAllByGroupId(group.getId());
-        dto.setExpenseSplits(expenses.stream()
-                .map(expense -> {
-                    ExpenseDTO expenseDTO = new ExpenseDTO();
-                    expenseDTO.setExpenseId(expense.getId());
-                    expenseDTO.setDescription(expense.getDescription());
-                    expenseDTO.setExpenseAmount(expense.getTotalAmount());
-                    expenseDTO.setPaidBy(expense.getPaidBy());
-                    expenseDTO.setCreatedAt(expense.getCreatedAt());
-
-                    List<ExpenseSplit> splits = expenseSplitRepository.findAllByExpenseId(expense.getId());
-                    expenseDTO.setExpenseSplits(splits.stream()
-                            .map(split -> {
-                                ExpenseSplitDTO splitDTO = new ExpenseSplitDTO();
-                                splitDTO.setExpenseSplitId(split.getId());
-                                splitDTO.setAmountOwed(split.getAmountOwed());
-                                splitDTO.setSplitAt(split.getCreatedAt());
-                                splitDTO.setSettled(split.getStatus() == SettlementStatus.SETTLED);
-                                return splitDTO;
-                            })
-                            .toList());
-
-                    return expenseDTO;
-                })
-                .toList());
-        return dto;
+        return new GroupExpenseDTO();
     }
+//        GroupExpenseDTO dto = new GroupExpenseDTO();
+//        dto.setId(group.getId());
+//        dto.setGroupName(group.getName());
+//        dto.setDescription(group.getDescription());
+//        dto.setCreatedBy(group.getCreatedBy().getEmail());
+//        dto.setMembers(group.getGroupMembers().stream()
+//                .map(member -> {
+//                    GroupMemberDTO memberDTO = new GroupMemberDTO();
+//                    memberDTO.setEmail(member.getGroupMemberId().getMemberEmail());
+//                    memberDTO.setIsActive(member.isActive());
+//                    return memberDTO;
+//                })
+//                .toList());
+//
+//
+//        List<Expense> expenses = expenseRepository.findAllByGroupId(group.getId());
+//        dto.setExpenseSplits(expenses.stream()
+//                .map(expense -> {
+//                    ExpenseDTO expenseDTO = new ExpenseDTO();
+//                    expenseDTO.setExpenseId(expense.getId());
+//                    expenseDTO.setDescription(expense.getDescription());
+//                    expenseDTO.setExpenseAmount(expense.getTotalAmount());
+//                    expenseDTO.setPaidBy(expense.getPaidBy());
+//                    expenseDTO.setCreatedAt(expense.getCreatedAt());
+//
+//                    List<ExpenseSplit> splits = expenseSplitRepository.findAllByExpenseId(expense.getId());
+//                    expenseDTO.setExpenseSplits(splits.stream()
+//                            .map(split -> {
+//                                ExpenseSplitDTO splitDTO = new ExpenseSplitDTO();
+//                                splitDTO.setExpenseSplitId(split.getId());
+//                                splitDTO.setAmountOwed(split.getAmountOwed());
+//                                splitDTO.setSplitAt(split.getCreatedAt());
+//                                splitDTO.setSettled(split.getStatus() == SettlementStatus.SETTLED);
+//                                return splitDTO;
+//                            })
+//                            .toList());
+//
+//                    return expenseDTO;
+//                })
+//                .toList());
+//        return dto;
+//    }
 }

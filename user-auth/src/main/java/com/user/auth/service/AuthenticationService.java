@@ -29,10 +29,7 @@ import org.springframework.web.client.RestTemplate;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.util.Date;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 import static com.user.auth.utils.HashUtil.sha256Hex;
 import static java.lang.String.format;
@@ -100,8 +97,7 @@ public class AuthenticationService {
 
             if (!user.getIsEmailVerified()) {
                 return LoginResponse.builder()
-                        .isEmailVerified(false)
-                        .userName(user.getEmail())
+                        .user(convertToGroupMemberDTO(user))
                         .build();
             }
 
@@ -113,9 +109,10 @@ public class AuthenticationService {
             return LoginResponse.builder()
                     .accessToken(token)
                     .refreshToken(refreshToken)
+                    .user(convertToGroupMemberDTO(user))
                     .build();
 
-        } catch (Exception exception) {
+        } catch (UsernameNotFoundException exception) {
             log.error("Authentication failed for user: {}", request.email(), exception);
             throw new InvalidCredentialsException("Invalid email or password");
         }
@@ -199,8 +196,15 @@ public class AuthenticationService {
 
     public void resendOtp(String email) {
         Assert.hasText(email, "Email must not be empty");
-        userRepository.findByEmail(email).filter(user -> !user.getIsEmailVerified())
-                .orElseThrow(() -> new InvalidDataException("User is not present/user is verified"));
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (userOpt.isEmpty()) {
+            throw new InvalidDataException("Email not found");
+        }
+        User user = userOpt.get();
+        if (user.getIsEmailVerified()) {
+            throw new InvalidDataException("Email is already verified");
+        }
         final var otp = generateAndStoreOtpInRedis(email);
         sendOtpEmail(email, otp);
     }
@@ -246,5 +250,14 @@ public class AuthenticationService {
             log.error("Unexpected error during refresh token", e);
             throw new InternalServerErrorException("Unexpected error during refresh token");
         }
+    }
+
+    private GroupMemberDTO  convertToGroupMemberDTO(User user) {
+        return GroupMemberDTO.builder()
+                .userId(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .isActive(user.getIsEmailVerified())
+                .build();
     }
 }
