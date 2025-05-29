@@ -1,29 +1,50 @@
 package com.user.auth.service;
 
-import com.user.auth.dao.*;
-import com.user.auth.dtos.*;
+import com.user.auth.converter.ExpenseConverter;
+import com.user.auth.converter.ExpenseSplitConverter;
+import com.user.auth.converter.GroupMemberConverter;
+import com.user.auth.dao.ExpenseRepository;
+import com.user.auth.dao.ExpenseSplitRepository;
+import com.user.auth.dao.GroupMemberRepository;
+import com.user.auth.dao.GroupRepository;
+import com.user.auth.dtos.ExpenseCreationRequest;
+import com.user.auth.dtos.ExpenseDTO;
+import com.user.auth.dtos.ExpenseSplitDTO;
+import com.user.auth.dtos.GroupCreationRequest;
+import com.user.auth.dtos.GroupCreationResponse;
+import com.user.auth.dtos.GroupExpenseDTO;
+import com.user.auth.dtos.GroupMemberDTO;
+import com.user.auth.dtos.GroupUpdateRequest;
+import com.user.auth.dtos.IndividualShare;
 import com.user.auth.entity.Expense;
 import com.user.auth.entity.ExpenseSplit;
 import com.user.auth.entity.Group;
 import com.user.auth.entity.GroupMember;
 import com.user.auth.entity.User;
-import com.user.auth.enums.SettlementStatus;
 import com.user.auth.exception.InvalidDataException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+import static com.user.auth.converter.ExpenseConverter.convertToExpense;
+import static com.user.auth.converter.ExpenseSplitConverter.convertToExpenseSplit;
 import static com.user.auth.converter.GroupConverter.convertToGroupCreationResponse;
+import static com.user.auth.converter.GroupMemberConverter.convertToGroupMemberDTO;
 import static com.user.auth.converter.GroupMemberConverter.createGroupMember;
+import static java.lang.String.format;
 
 @RequiredArgsConstructor
 @Service
 public class SplitGroupService {
 
-    private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final EmailService emailService;
@@ -51,25 +72,13 @@ public class SplitGroupService {
 
     private List<GroupMemberDTO> getGroupMembersAndSendNotification(Group group) {
 
-        return group.getMembers().stream().filter(groupMember -> groupMember.isActive() && !groupMember.getGroupMemberId().getMemberEmail().equals(group.getCreatedBy().getEmail()))
+        return group.getMembers().stream()
+                .filter(groupMember -> groupMember.isActive() &&
+                        !groupMember.getGroupMemberId().getMemberEmail().equals(group.getCreatedBy().getEmail()))
                 .map(groupMember -> {
-                    GroupMemberDTO groupMemberDto;
-                    User user = userRepository.findByEmail(groupMember.getGroupMemberId().getMemberEmail()).orElse(null);
-                    if (user != null) {
-                        groupMemberDto = GroupMemberDTO.builder()
-                                .userId(user.getId())
-                                .fullName(user.getFullName())
-                                .email(user.getEmail())
-                                .isActive(groupMember.isActive())
-                                .build();
-                    } else {
-                        groupMemberDto = GroupMemberDTO.builder()
-                                .email(groupMember.getGroupMemberId().getMemberEmail())
-                                .isActive(false)
-                                .build();
-                    }
-                    emailService.sendEmail(groupMember.getGroupMemberId().getMemberEmail(), "Group Created", "You have been added to a new group");
-                    return groupMemberDto;
+                    emailService.sendEmail(groupMember.getGroupMemberId().getMemberEmail(),
+                            "Group Created", "You have been added to a new group");
+                    return convertToGroupMemberDTO(groupMember);
                 })
                 .toList();
     }
@@ -100,7 +109,7 @@ public class SplitGroupService {
 
     public void updateGroupInformation(GroupUpdateRequest groupUpdateRequest) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        final var user  = (User) authentication.getPrincipal();
+        final var user = (User) authentication.getPrincipal();
         final var email = user.getUsername();
         final var groupId = groupUpdateRequest.getGroupId();
         groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, email, true)
@@ -117,7 +126,7 @@ public class SplitGroupService {
 
     public void deleteGroup(String groupId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        final var user  = (User) authentication.getPrincipal();
+        final var user = (User) authentication.getPrincipal();
         final var email = user.getUsername();
         groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, email, true)
                 .orElseThrow(() -> new InvalidDataException("User is not present/user is verified"));
@@ -139,55 +148,102 @@ public class SplitGroupService {
 
     public List<GroupExpenseDTO> fetchAllGroupDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        final var user  = (User) authentication.getPrincipal();
+        final var user = (User) authentication.getPrincipal();
         final var email = user.getUsername();
         List<Group> groups = groupRepository.findAllByUserId(email);
         return groups.stream().map(this::convertToGroupExpenseDTO).toList();
     }
 
     public GroupExpenseDTO convertToGroupExpenseDTO(Group group) {
+        List<Expense> expenses = expenseRepository.findAllExpensesWithSplits(group.getId());
+        return GroupExpenseDTO.builder()
+                .id(group.getId())
+                .groupName(group.getName())
+                .description(group.getDescription())
+                .createdBy(group.getCreatedBy().getEmail())
+                .createdAt(group.getCreatedAt())
+                .expenseAmount(expenses.stream().mapToDouble(Expense::getTotalAmount).sum())
+                .members(getGroupMemberDTO(group.getMembers()))
+                .expenseSplits(convertToExpenseDTOs(expenses))
+                .build();
+    }
 
-
-        GroupExpenseDTO dto = new GroupExpenseDTO();
-        dto.setId(group.getId());
-        dto.setGroupName(group.getName());
-        dto.setDescription(group.getDescription());
-        dto.setCreatedBy(group.getCreatedBy().getEmail());
-        dto.setMembers(group.getMembers().stream()
-                .map(member -> {
-                    GroupMemberDTO memberDTO = new GroupMemberDTO();
-                    memberDTO.setEmail(member.getGroupMemberId().getMemberEmail());
-                    memberDTO.setIsActive(member.isActive());
-                    return memberDTO;
-                })
-                .toList());
-
-
-        List<Expense> expenses = expenseRepository.findAllByGroupId(group.getId());
-        dto.setExpenseSplits(expenses.stream()
+    public List<ExpenseDTO> convertToExpenseDTOs(List<Expense> expenses) {
+        return expenses.stream()
                 .map(expense -> {
-                    ExpenseDTO expenseDTO = new ExpenseDTO();
-                    expenseDTO.setExpenseId(expense.getId());
-                    expenseDTO.setDescription(expense.getDescription());
-                    expenseDTO.setExpenseAmount(expense.getTotalAmount());
-                    expenseDTO.setPaidBy(GroupMemberDTO.builder().email(expense.getPaidBy()).build());
-                    expenseDTO.setCreatedAt(expense.getCreatedAt());
-
-                    List<ExpenseSplit> splits = expenseSplitRepository.findAllByExpenseId(expense.getId());
-                    expenseDTO.setExpenseSplits(splits.stream()
-                            .map(split -> {
-                                ExpenseSplitDTO splitDTO = new ExpenseSplitDTO();
-                                splitDTO.setExpenseSplitId(split.getId());
-                                splitDTO.setAmountOwed(split.getAmountOwed());
-                                splitDTO.setSplitAt(split.getCreatedAt());
-                                splitDTO.setSettled(split.getStatus() == SettlementStatus.SETTLED);
-                                return splitDTO;
-                            })
-                            .toList());
-
-                    return expenseDTO;
+                    ExpenseDTO dto = ExpenseConverter.convertToExpenseDTO(expense);
+                    List<ExpenseSplitDTO> splitDTOs = expense.getSplits().stream()
+                            .map(ExpenseSplitConverter::convertToExpenseSplitDTO)
+                            .toList();
+                    dto.setExpenseSplits(splitDTOs);
+                    return dto;
                 })
-                .toList());
-        return dto;
+                .toList();
+    }
+
+    private List<GroupMemberDTO> getGroupMemberDTO(Set<GroupMember> members) {
+        return members.stream().map(GroupMemberConverter::convertToGroupMemberDTO).toList();
+    }
+
+    public String addExpenseToGroup(String groupId, ExpenseCreationRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        final var user = (User) authentication.getPrincipal();
+        final var email = user.getUsername();
+
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new InvalidDataException("Group not found"));
+
+        boolean isMember = group.getMembers().stream()
+                .anyMatch(member ->
+                        member.getGroupMemberId().getMemberEmail().equals(email) && member.isActive()
+                );
+        if (!isMember) {
+            throw new InvalidDataException("User is not a member of the group");
+        }
+        //validate shares belongs to the group
+        Set<String> groupMemberEmails = group.getMembers().stream()
+                .filter(GroupMember::isActive)
+                .map(member -> member.getGroupMemberId().getMemberEmail())
+                .collect(Collectors.toSet());
+
+        for (IndividualShare share : request.getShares()) {
+            if (!groupMemberEmails.contains(share.owedBy())) {
+                throw new InvalidDataException("User " + share.owedBy() + " is not a member of this group");
+            }
+        }
+        //validate payer belongs to the group
+        if (!groupMemberEmails.contains(request.getPaidBy())) {
+            throw new InvalidDataException("Payer is not a member of the group");
+        }
+
+        Expense expense = convertToExpense(group, request, user);
+        expenseRepository.save(expense);
+        request.getShares().forEach(share -> {
+            ExpenseSplit split = convertToExpenseSplit(request, share, expense);
+            expenseSplitRepository.save(split);
+        });
+        return expense.getId();
+    }
+
+    public void deleteGroupMember(String groupId, String memberEmail) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        final var user = (User) authentication.getPrincipal();
+        final var email = user.getUsername();
+        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, email, true)
+                .filter(GroupMember::isAdmin)
+                .orElseThrow(() -> new InvalidDataException(format("%s is not an admin", email)));
+
+        // check if there is no any unsettled expenses
+        List<ExpenseSplit> pendingSplits = expenseSplitRepository.findPendingSplitsByUserEmailAndGroupId(memberEmail, groupId);
+
+        if (!pendingSplits.isEmpty()) {
+            throw new InvalidDataException("There are unsettled expenses");
+        }
+        //check if member is active member
+        GroupMember groupMember = groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, memberEmail, true)
+                .orElseThrow(() -> new InvalidDataException(format("%s is not an active member", memberEmail)));
+
+        groupMember.setActive(false);
+        groupMemberRepository.save(groupMember);
     }
 }

@@ -1,5 +1,8 @@
 package com.user.auth.dtos;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -7,10 +10,14 @@ import java.util.Date;
 
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ExpenseSplitDTO {
+    private String expenseId;
     private String expenseSplitId;
-    private GroupMemberDTO owedBy;
+    private String owedBy;
     private Double amountOwed;
-    private Date SplitAt;
+    private Date splitAt;
     private boolean isSettled;
 }

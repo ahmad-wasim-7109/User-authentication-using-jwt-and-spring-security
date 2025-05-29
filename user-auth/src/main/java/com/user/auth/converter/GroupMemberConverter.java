@@ -1,9 +1,11 @@
 package com.user.auth.converter;
 
 
+import com.user.auth.dtos.GroupMemberDTO;
 import com.user.auth.entity.Group;
 import com.user.auth.entity.GroupMember;
 import com.user.auth.entity.GroupMemberId;
+import com.user.auth.entity.User;
 
 import java.util.Date;
 
@@ -17,5 +19,12 @@ public class GroupMemberConverter {
         groupMember.setJoinedAt(new Date());
         groupMember.setActive(true);
         return groupMember;
+    }
+
+    public static GroupMemberDTO convertToGroupMemberDTO(GroupMember groupMember) {
+        GroupMemberDTO groupMemberDTO = new GroupMemberDTO();
+        groupMemberDTO.setEmail(groupMember.getGroupMemberId().getMemberEmail());
+        groupMemberDTO.setIsActive(groupMember.isActive());
+        return groupMemberDTO;
     }
 }

@@ -23,6 +23,9 @@ public class GroupMember {
     @Column(name = "joined_at")
     private Date joinedAt;
 
+    @Column(name = "is_admin")
+    private boolean isAdmin;
+
     @Column(name = "is_active")
     private boolean isActive;
 }

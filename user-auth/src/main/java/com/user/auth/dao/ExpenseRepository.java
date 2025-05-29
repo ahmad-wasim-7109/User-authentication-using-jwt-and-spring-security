@@ -15,4 +15,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, String> {
     @Query("DELETE FROM Expense e WHERE e.group.id IN ?1")
     void deleteAllByGroupId(List<String> groupIds);
 
+    @Query("SELECT e FROM Expense e LEFT JOIN FETCH e.splits WHERE e.group.id = :groupId")
+    List<Expense> findAllExpensesWithSplits(String groupId);
 }

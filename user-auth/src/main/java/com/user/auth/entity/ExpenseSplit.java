@@ -10,13 +10,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.Getter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.util.Date;
 
-@Getter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "expense_splits")
 public class ExpenseSplit {
@@ -31,8 +34,8 @@ public class ExpenseSplit {
     @Column(name = "amount_owed", nullable = false)
     private Double amountOwed;
 
-    @JoinColumn(name = "owed_by", referencedColumnName = "id", nullable = false)
-    private User owedBy;
+    @Column(name = "owed_by", nullable = false)
+    private String owedBy;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "settlement_status", nullable = false)
