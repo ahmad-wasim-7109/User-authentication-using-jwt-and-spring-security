@@ -24,7 +24,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/split/group")
-@Tag(name = "Controller for splitting spends in group")
+@Tag(name = "3. Group Controller")
 public class SplitGroupController {
 
     private final SplitGroupService splitGroupService;
@@ -106,10 +106,9 @@ public class SplitGroupController {
             @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content)
     })
     @PostMapping(value = "/{groupId}/add-expense", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> addExpense(@PathVariable String groupId, @Valid @RequestBody ExpenseCreationRequest request
-    ) {
-        String expenseId = splitGroupService.addExpenseToGroup(groupId, request);
-        return ResponseEntity.ok(expenseId);
+    public ResponseEntity<String> addExpense(@PathVariable String groupId, @Valid @RequestBody ExpenseCreationRequest request) {
+        splitGroupService.addExpenseToGroup(groupId, request);
+        return ResponseEntity.ok().build();
     }
 
 

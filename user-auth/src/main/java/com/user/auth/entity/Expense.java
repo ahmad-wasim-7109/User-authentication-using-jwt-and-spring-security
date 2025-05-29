@@ -1,12 +1,15 @@
 package com.user.auth.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.util.Date;
-import java.util.Set;
+import java.util.List;
 
 @Data
 @Builder
@@ -35,11 +38,11 @@ public class Expense {
     @JoinColumn(name = "group_id", referencedColumnName = "id")
     private Group group;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "expense")
-    private Set<ExpenseSplit> splits;
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, mappedBy = "expense", fetch = FetchType.EAGER)
+    private List<ExpenseSplit> splits;
 
     @CreationTimestamp
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private Date createdAt;
 
     @UpdateTimestamp

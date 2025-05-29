@@ -41,6 +41,9 @@ public class Group {
     @JoinColumn(name = "created_by", referencedColumnName = "id")
     private User createdBy;
 
+    @Column(name = "is_deleted")
+    private boolean isDeleted;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Date createdAt;

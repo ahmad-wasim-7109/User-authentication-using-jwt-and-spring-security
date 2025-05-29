@@ -16,4 +16,5 @@ public class GroupMemberDTO {
     private String fullName;
     private String email;
     private Boolean isActive;
+    private Boolean isAdmin;
 }

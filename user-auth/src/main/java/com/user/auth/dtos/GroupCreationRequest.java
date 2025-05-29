@@ -21,8 +21,6 @@ public class GroupCreationRequest {
     private String groupName;
     @Size(max = 50, message = "Description must be at most 100 characters long")
     private String description;
-    @NotBlank(message = "Created by is required")
-    private String createdBy;
     @Size(min = 1, message = "Member list cannot be empty")
     private List<String> members;
 }

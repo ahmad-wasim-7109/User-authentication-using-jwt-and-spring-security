@@ -5,7 +5,6 @@ import com.user.auth.dtos.GroupMemberDTO;
 import com.user.auth.entity.Group;
 import com.user.auth.entity.GroupMember;
 import com.user.auth.entity.GroupMemberId;
-import com.user.auth.entity.User;
 
 import java.util.Date;
 
@@ -17,14 +16,16 @@ public class GroupMemberConverter {
         GroupMember groupMember = new GroupMember();
         groupMember.setGroupMemberId(groupMemberId);
         groupMember.setJoinedAt(new Date());
+        groupMember.setAdmin(false);
         groupMember.setActive(true);
         return groupMember;
     }
 
     public static GroupMemberDTO convertToGroupMemberDTO(GroupMember groupMember) {
-        GroupMemberDTO groupMemberDTO = new GroupMemberDTO();
-        groupMemberDTO.setEmail(groupMember.getGroupMemberId().getMemberEmail());
-        groupMemberDTO.setIsActive(groupMember.isActive());
-        return groupMemberDTO;
+        return GroupMemberDTO.builder()
+                .email(groupMember.getGroupMemberId().getMemberEmail())
+                .isAdmin(groupMember.isAdmin())
+                .isActive(groupMember.isActive())
+                .build();
     }
 }
