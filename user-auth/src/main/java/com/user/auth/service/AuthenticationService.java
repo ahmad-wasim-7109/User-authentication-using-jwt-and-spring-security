@@ -1,10 +1,10 @@
 package com.user.auth.service;
 
+import com.user.auth.dao.UserRepository;
 import com.user.auth.dtos.*;
 import com.user.auth.entity.User;
 import com.user.auth.enums.Role;
 import com.user.auth.exception.*;
-import com.user.auth.dao.UserRepository;
 import com.user.auth.utils.JwtUtils;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.lang.Assert;
@@ -31,6 +31,9 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.*;
 
+
+import static com.user.auth.converter.GroupMemberConverter.userToGroupMemberDTO;
+import static com.user.auth.enums.NotificationType.OTP_GENERATED;
 import static com.user.auth.utils.HashUtil.sha256Hex;
 import static java.lang.String.format;
 import static java.util.Optional.of;
@@ -48,7 +51,7 @@ public class AuthenticationService {
     private final UserDetailsService userDetailsService;
     private final RestTemplate restTemplate;
     private final RedisService redisService;
-    private final EmailService emailService;
+    private final NotificationService notificationService;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String clientId;
@@ -80,7 +83,7 @@ public class AuthenticationService {
         userRepository.save(user);
         log.info("User registered successfully: {}", request.email());
         var otp = generateAndStoreOtpInRedis(request.email());
-        sendOtpEmail(request.email(), otp);
+        notificationService.notifyUser(OTP_GENERATED, request.email(), otp);
         return RegisterResponse.builder()
                 .message("User registered successfully")
                 .userName(request.email())
@@ -97,7 +100,7 @@ public class AuthenticationService {
 
             if (!user.getIsEmailVerified()) {
                 return LoginResponse.builder()
-                        .user(convertToGroupMemberDTO(user))
+                        .user(userToGroupMemberDTO(user))
                         .build();
             }
 
@@ -109,7 +112,7 @@ public class AuthenticationService {
             return LoginResponse.builder()
                     .accessToken(token)
                     .refreshToken(refreshToken)
-                    .user(convertToGroupMemberDTO(user))
+                    .user(userToGroupMemberDTO(user))
                     .build();
 
         } catch (UsernameNotFoundException exception) {
@@ -206,19 +209,7 @@ public class AuthenticationService {
             throw new InvalidDataException("Email is already verified");
         }
         final var otp = generateAndStoreOtpInRedis(email);
-        sendOtpEmail(email, otp);
-    }
-
-    public void sendOtpEmail(String to, String otp) {
-        log.info("Sending otp email to: {}, otp: {}", to, otp);
-        String subject = "Verify Your Email Address";
-        String body = "Dear User,\n\n"
-                + "Thank you for registering! To complete your email verification, please use the following One-Time Password (OTP):\n\n"
-                + "OTP: " + otp + "\n\n"
-                + "This OTP is valid for 5 minutes. If you did not request this verification, please ignore this email.\n\n"
-                + "Best regards,\n"
-                + "SplitBillsTeam";
-        emailService.sendEmail(to, subject, body);
+        notificationService.notifyUser(OTP_GENERATED, email, otp);
     }
 
     public LoginResponse refreshToken(String refreshToken) {
@@ -250,14 +241,5 @@ public class AuthenticationService {
             log.error("Unexpected error during refresh token", e);
             throw new InternalServerErrorException("Unexpected error during refresh token");
         }
-    }
-
-    private GroupMemberDTO  convertToGroupMemberDTO(User user) {
-        return GroupMemberDTO.builder()
-                .userId(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .isActive(user.getIsEmailVerified())
-                .build();
     }
 }

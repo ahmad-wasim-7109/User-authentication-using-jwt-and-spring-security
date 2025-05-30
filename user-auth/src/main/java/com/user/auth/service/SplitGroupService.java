@@ -7,20 +7,13 @@ import com.user.auth.dao.ExpenseRepository;
 import com.user.auth.dao.ExpenseSplitRepository;
 import com.user.auth.dao.GroupMemberRepository;
 import com.user.auth.dao.GroupRepository;
-import com.user.auth.dtos.ExpenseCreationRequest;
-import com.user.auth.dtos.ExpenseDTO;
-import com.user.auth.dtos.ExpenseSplitDTO;
-import com.user.auth.dtos.GroupCreationRequest;
-import com.user.auth.dtos.GroupCreationResponse;
-import com.user.auth.dtos.GroupExpenseDTO;
-import com.user.auth.dtos.GroupMemberDTO;
-import com.user.auth.dtos.GroupUpdateRequest;
-import com.user.auth.dtos.IndividualShare;
+import com.user.auth.dtos.*;
 import com.user.auth.entity.Expense;
 import com.user.auth.entity.ExpenseSplit;
 import com.user.auth.entity.Group;
 import com.user.auth.entity.GroupMember;
 import com.user.auth.entity.User;
+import com.user.auth.enums.Role;
 import com.user.auth.enums.SettlementStatus;
 import com.user.auth.exception.InvalidDataException;
 import lombok.RequiredArgsConstructor;
@@ -153,12 +146,12 @@ public class SplitGroupService {
         groupRepository.save(group);
     }
 
-    public List<GroupExpenseDTO> fetchAllGroupDetails() {
+    public GroupExpenseSummary fetchAllGroupDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         final var user = (User) authentication.getPrincipal();
         final var email = user.getUsername();
         List<Group> groups = groupRepository.findAllByUserId(email);
-        return groups.stream().map(this::convertToGroupExpenseDTO).toList();
+        return new GroupExpenseSummary(groups.stream().map(this::convertToGroupExpenseDTO).toList());
     }
 
     public GroupExpenseDTO convertToGroupExpenseDTO(Group group) {
@@ -255,5 +248,29 @@ public class SplitGroupService {
 
         groupMember.setActive(false);
         groupMemberRepository.save(groupMember);
+    }
+
+    public void addMemberToGroup(AddGroupMemberRequest addGroupMemberRequest) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        final var user = (User) authentication.getPrincipal();
+        final var email = user.getUsername();
+
+        Group group = groupRepository.findByIdAndIsDeleted(addGroupMemberRequest.getGroupId(), false)
+                .orElseThrow(() -> new InvalidDataException("Group not found"));
+
+        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(addGroupMemberRequest.getGroupId(), email, true)
+                .filter(GroupMember::isAdmin)
+                .orElseThrow(() -> new InvalidDataException("User is not an admin"));
+
+        boolean isAnExistingMember = group.getMembers().stream()
+                .anyMatch(member -> member.getGroupMemberId().getMemberEmail().equals(addGroupMemberRequest.getMemberEmail()));
+
+        if (isAnExistingMember) {
+            throw new InvalidDataException("Member is not part of the group");
+        }
+        GroupMember groupMember = createGroupMember(addGroupMemberRequest.getMemberEmail(), group);
+        groupMember.setAdmin(addGroupMemberRequest.getRole() != null && addGroupMemberRequest.getRole() == Role.ADMIN);
+        groupMemberRepository.save(groupMember);
+        emailService.sendEmail(addGroupMemberRequest.getMemberEmail(), "Group Update", "You've been added to the group: " + group.getName());
     }
 }

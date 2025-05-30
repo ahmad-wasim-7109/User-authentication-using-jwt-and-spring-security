@@ -1,9 +1,6 @@
 package com.user.auth.controller;
 
-import com.user.auth.dtos.ExpenseCreationRequest;
-import com.user.auth.dtos.GroupCreationRequest;
-import com.user.auth.dtos.GroupCreationResponse;
-import com.user.auth.dtos.GroupUpdateRequest;
+import com.user.auth.dtos.*;
 import com.user.auth.service.SplitGroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -77,11 +74,11 @@ public class SplitGroupController {
     @Operation(summary = "Fetch all group detail linked with the customer")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", content = @Content(mediaType = APPLICATION_JSON_VALUE,
-            schema = @Schema(implementation = String.class)), description = "Successful operation"),
+            schema = @Schema(implementation = GroupExpenseSummary.class)), description = "Successful operation"),
             @ApiResponse(responseCode = "400", description = "Bad Request")
     })
     @GetMapping(value = "/all-groups", produces = APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> getAllGroup() {
+    public ResponseEntity<GroupExpenseSummary> getAllGroup() {
         log.info("Get All Group Controller");
         return ResponseEntity.ok(splitGroupService.fetchAllGroupDetails());
     }
@@ -92,10 +89,7 @@ public class SplitGroupController {
             @ApiResponse(responseCode = "400", description = "Invalid input or member has unsettled expenses")
     })
     @DeleteMapping(value = "/{groupId}/delete-member", produces = APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> deleteGroupMember(
-            @PathVariable String groupId,
-            @RequestParam String memberEmail) {
-
+    public ResponseEntity<Void> deleteGroupMember(@PathVariable String groupId,@RequestParam String memberEmail) {
         splitGroupService.deleteGroupMember(groupId, memberEmail);
         return ResponseEntity.ok().build();
     }
@@ -106,22 +100,20 @@ public class SplitGroupController {
             @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content)
     })
     @PostMapping(value = "/{groupId}/add-expense", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
-    public ResponseEntity<String> addExpense(@PathVariable String groupId, @Valid @RequestBody ExpenseCreationRequest request) {
+    public ResponseEntity<Void> addExpense(@PathVariable String groupId, @Valid @RequestBody ExpenseCreationRequest request) {
         splitGroupService.addExpenseToGroup(groupId, request);
         return ResponseEntity.ok().build();
     }
 
-
-
     @Operation(summary = "Add a member to a group")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = APPLICATION_JSON_VALUE,
-            schema = @Schema(implementation = String.class)), description = "Successful operation"),
+            schema = @Schema(implementation = AddGroupMemberRequest.class)), description = "Successful operation"),
             @ApiResponse(responseCode = "400", content = @Content(mediaType = APPLICATION_JSON_VALUE,
                     schema = @Schema(implementation = String.class)), description = "Bad Request")
     })
-    @PostMapping(value = "{groupId}/add-member", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> addGroupMember() {
-        log.info("Add Group Member Controller");
-        return ResponseEntity.ok("Group Member Added");
+    @PostMapping(value = "/add-member", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> addGroupMember(@RequestBody AddGroupMemberRequest request) {
+        splitGroupService.addMemberToGroup(request);
+        return ResponseEntity.ok().build();
     }
 }
