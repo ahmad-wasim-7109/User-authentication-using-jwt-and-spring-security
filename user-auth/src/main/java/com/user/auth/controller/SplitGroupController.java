@@ -2,6 +2,7 @@ package com.user.auth.controller;
 
 import com.user.auth.dtos.*;
 import com.user.auth.service.SplitGroupService;
+import com.user.auth.utils.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,7 +34,7 @@ public class SplitGroupController {
     })
     @PostMapping(value = "/create", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<GroupCreationResponse> createSplit(@Valid @RequestBody GroupCreationRequest groupCreationRequest) {
-        return ResponseEntity.ok(splitGroupService.createGroup(groupCreationRequest));
+        return ResponseEntity.ok(splitGroupService.createGroup(UserContext.getCurrentUser(), groupCreationRequest));
     }
 
     @Operation(summary = "Update group information")
@@ -44,7 +45,7 @@ public class SplitGroupController {
     @PostMapping(value = "/update", produces = APPLICATION_JSON_VALUE, consumes =
             APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> updateGroup(@Valid @RequestBody GroupUpdateRequest groupUpdateRequest) {
-        splitGroupService.updateGroupInformation(groupUpdateRequest);
+        splitGroupService.updateGroupInformation(UserContext.getCurrentUserEmail(), groupUpdateRequest);
         return ResponseEntity.ok().build();
     }
 
@@ -56,7 +57,7 @@ public class SplitGroupController {
     @DeleteMapping(value = "/{groupId}/delete", produces = APPLICATION_JSON_VALUE, consumes =
             APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteGroup(@PathVariable String groupId) {
-        splitGroupService.deleteGroup(groupId);
+        splitGroupService.deleteGroup(UserContext.getCurrentUserEmail(), groupId);
         return ResponseEntity.ok().build();
     }
 
@@ -80,7 +81,7 @@ public class SplitGroupController {
     @GetMapping(value = "/all-groups", produces = APPLICATION_JSON_VALUE)
     public ResponseEntity<GroupExpenseSummary> getAllGroup() {
         log.info("Get All Group Controller");
-        return ResponseEntity.ok(splitGroupService.fetchAllGroupDetails());
+        return ResponseEntity.ok(splitGroupService.fetchAllGroupDetails(UserContext.getCurrentUserEmail()));
     }
 
     @Operation(summary = "Delete a single member from a group")
@@ -90,7 +91,7 @@ public class SplitGroupController {
     })
     @DeleteMapping(value = "/{groupId}/delete-member", produces = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteGroupMember(@PathVariable String groupId,@RequestParam String memberEmail) {
-        splitGroupService.deleteGroupMember(groupId, memberEmail);
+        splitGroupService.deleteGroupMember(UserContext.getCurrentUserEmail(), groupId, memberEmail);
         return ResponseEntity.ok().build();
     }
 
@@ -101,7 +102,7 @@ public class SplitGroupController {
     })
     @PostMapping(value = "/{groupId}/add-expense", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> addExpense(@PathVariable String groupId, @Valid @RequestBody ExpenseCreationRequest request) {
-        splitGroupService.addExpenseToGroup(groupId, request);
+        splitGroupService.addExpenseToGroup(UserContext.getCurrentUser(), groupId, request);
         return ResponseEntity.ok().build();
     }
 
@@ -113,7 +114,7 @@ public class SplitGroupController {
     })
     @PostMapping(value = "/add-member", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> addGroupMember(@RequestBody AddGroupMemberRequest request) {
-        splitGroupService.addMemberToGroup(request);
+        splitGroupService.addMemberToGroup(UserContext.getCurrentUserEmail(), request);
         return ResponseEntity.ok().build();
     }
 }

@@ -8,7 +8,7 @@ public enum EmailTemplate {
     GROUP_CREATED(
             "You've been added to a group",
             """
-                    Hello %s,
+                    Hello,
                     
                     You've been added to the group '%s' by %s.
                     

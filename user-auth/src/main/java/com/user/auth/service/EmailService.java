@@ -10,11 +10,10 @@ import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-@EnableAsync
 @RequiredArgsConstructor
 public class EmailService {
     private final JavaMailSender javaMailSender;
-    @Async
+
     public void sendEmail(String to, String subject, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
