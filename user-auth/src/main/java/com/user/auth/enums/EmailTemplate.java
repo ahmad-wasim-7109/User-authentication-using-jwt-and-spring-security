@@ -10,7 +10,9 @@ public enum EmailTemplate {
             """
                     Hello,
                     
+                    
                     You've been added to the group '%s' by %s.
+                    
                     
                     Best regards,
                     SplitBillsTeam"""
@@ -20,7 +22,9 @@ public enum EmailTemplate {
             """
                     Hello %s,
                     
-                    You've been added to the group '%s'.
+                    
+                    You've been added to the group '%s' by %s. For more information visit our app.
+                    
                     
                     Best regards,
                     SplitBillsTeam"""
@@ -30,7 +34,9 @@ public enum EmailTemplate {
             """
                     Hello %s,
                     
+                    
                     A new expense of %.2f has been added to group '%s'.
+                    
                     
                     Best regards,
                     SplitBillsTeam"""
@@ -40,7 +46,9 @@ public enum EmailTemplate {
             """
                     Hello %s,
                     
+                    
                     You have a new split of %.2f in group %s.
+                    
                     
                     Best regards,
                     SplitBillsTeam"""
@@ -50,7 +58,9 @@ public enum EmailTemplate {
             """
                     Hello %s,
                     
+                    
                     The expense '%s' has been settled by %s.
+                    
                     
                     Best regards,
                     SplitBillsTeam"""
@@ -60,11 +70,14 @@ public enum EmailTemplate {
             """
                     Dear User,
                     
+                    
                     Thank you for registering! To complete your email verification, please use the following One-Time Password (OTP):
                     
+                   
                     OTP: %s
                     
                     This OTP is valid for 5 minutes. If you did not request this verification, please ignore this email.
+                    
                     
                     Best regards,
                     SplitBillsTeam"""
@@ -74,11 +87,15 @@ public enum EmailTemplate {
             """
                     Dear User,
                     
+                    
                     A password reset was requested for your account. Use the following code to proceed.
+                    
                     
                     Reset Code: %s
                     
+                    
                     If you did not request this, please ignore it.
+                    
                     
                     Best regards,
                     SplitBills Team"""

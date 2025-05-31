@@ -14,10 +14,8 @@ import java.util.Date;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ExpenseSplitDTO {
-    private String expenseId;
     private String expenseSplitId;
     private String owedBy;
     private Double amountOwed;
     private Date splitAt;
-    private boolean isSettled;
 }

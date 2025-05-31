@@ -20,7 +20,8 @@ public class GroupExpenseDTO {
     private String description;
     private String createdBy;
     private Date createdAt;
-    private Double expenseAmount;
+    private Date updatedAt;
+    private Double settlementAmount;
     private List<GroupMemberDTO> members;
     private List<ExpenseDTO> expenseSplits;
 }

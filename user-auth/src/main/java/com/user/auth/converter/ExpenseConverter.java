@@ -2,11 +2,13 @@ package com.user.auth.converter;
 
 import com.user.auth.dtos.ExpenseCreationRequest;
 import com.user.auth.dtos.ExpenseDTO;
+import com.user.auth.dtos.GroupExpenseDTO;
 import com.user.auth.entity.Expense;
 import com.user.auth.entity.Group;
 import com.user.auth.entity.User;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 public class ExpenseConverter {

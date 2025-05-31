@@ -15,6 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
+import static com.user.auth.utils.UserContext.getCurrentUser;
+import static com.user.auth.utils.UserContext.getCurrentUserEmail;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 
@@ -30,7 +34,8 @@ public class SplitGroupController {
     @Operation(summary = "Create Split Group")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = APPLICATION_JSON_VALUE,
             schema = @Schema(implementation = GroupCreationResponse.class)), description = "Successful operation"),
-            @ApiResponse(responseCode = "400", description = "Bad Request")
+            @ApiResponse(responseCode = "400", content = @Content(mediaType = APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = String.class)), description = "Bad Request or Invalid Input")
     })
     @PostMapping(value = "/create", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<GroupCreationResponse> createSplit(@Valid @RequestBody GroupCreationRequest groupCreationRequest) {
@@ -45,7 +50,7 @@ public class SplitGroupController {
     @PostMapping(value = "/update", produces = APPLICATION_JSON_VALUE, consumes =
             APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> updateGroup(@Valid @RequestBody GroupUpdateRequest groupUpdateRequest) {
-        splitGroupService.updateGroupInformation(UserContext.getCurrentUserEmail(), groupUpdateRequest);
+        splitGroupService.updateGroupInformation(getCurrentUserEmail(), groupUpdateRequest);
         return ResponseEntity.ok().build();
     }
 
@@ -54,34 +59,32 @@ public class SplitGroupController {
             schema = @Schema(implementation = String.class)), description = "Successful operation"),
             @ApiResponse(responseCode = "400", description = "Bad Request")
     })
-    @DeleteMapping(value = "/{groupId}/delete", produces = APPLICATION_JSON_VALUE, consumes =
-            APPLICATION_JSON_VALUE)
+    @DeleteMapping(value = "/{groupId}/delete", produces = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteGroup(@PathVariable String groupId) {
-        splitGroupService.deleteGroup(UserContext.getCurrentUserEmail(), groupId);
+        splitGroupService.deleteGroup(getCurrentUserEmail(), groupId);
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "Get group information")
+    @Operation(summary = "Get All groups meta data")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", content = @Content(mediaType = APPLICATION_JSON_VALUE,
-            schema = @Schema(implementation = String.class)), description = "Successful operation"),
-            @ApiResponse(responseCode = "400", description = "Bad Request")})
-    @GetMapping(value = "/groups/{group-id}", produces = APPLICATION_JSON_VALUE, consumes =
-            APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> getGroup() {
-        log.info("Get Group Controller");
-        return ResponseEntity.ok("Group Retrieved");
-    }
-
-    @Operation(summary = "Fetch all group detail linked with the customer")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", content = @Content(mediaType = APPLICATION_JSON_VALUE,
             schema = @Schema(implementation = GroupExpenseSummary.class)), description = "Successful operation"),
             @ApiResponse(responseCode = "400", description = "Bad Request")
     })
     @GetMapping(value = "/all-groups", produces = APPLICATION_JSON_VALUE)
-    public ResponseEntity<GroupExpenseSummary> getAllGroup() {
-        log.info("Get All Group Controller");
-        return ResponseEntity.ok(splitGroupService.fetchAllGroupDetails(UserContext.getCurrentUserEmail()));
+    public ResponseEntity<GroupExpenseSummary> getAllGroupSummary() {
+        return ResponseEntity.ok(splitGroupService.fetchAllGroupSummary(getCurrentUserEmail()));
+    }
+
+    @Operation(summary = "Get all settlement transactions for a group")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", content = @Content(mediaType = APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = GroupExpenseDTO.class)), description = "Successful operation"),
+            @ApiResponse(responseCode = "400", content = @Content(mediaType = APPLICATION_JSON_VALUE,
+                    schema = @Schema(implementation = String.class)), description = "Bad Request or Invalid Input")
+    })
+    @GetMapping(value = "/{groupId}", produces = APPLICATION_JSON_VALUE)
+    public ResponseEntity<GroupExpenseDTO> getSettlementTransactions(@PathVariable String groupId) {
+        return ResponseEntity.ok(splitGroupService.getGroupInformation(getCurrentUserEmail(), groupId));
     }
 
     @Operation(summary = "Delete a single member from a group")
@@ -91,7 +94,7 @@ public class SplitGroupController {
     })
     @DeleteMapping(value = "/{groupId}/delete-member", produces = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteGroupMember(@PathVariable String groupId,@RequestParam String memberEmail) {
-        splitGroupService.deleteGroupMember(UserContext.getCurrentUserEmail(), groupId, memberEmail);
+        splitGroupService.deleteGroupMember(getCurrentUserEmail(), groupId, memberEmail);
         return ResponseEntity.ok().build();
     }
 
@@ -114,7 +117,18 @@ public class SplitGroupController {
     })
     @PostMapping(value = "/add-member", produces = APPLICATION_JSON_VALUE, consumes = APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> addGroupMember(@RequestBody AddGroupMemberRequest request) {
-        splitGroupService.addMemberToGroup(UserContext.getCurrentUserEmail(), request);
+        splitGroupService.addMemberToGroup(getCurrentUser(), request);
         return ResponseEntity.ok().build();
     }
+
+    @Operation(summary = "Get all settlement transactions for a group")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Settlement transactions retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input or request parameters")
+    })
+    @GetMapping("/{groupId}/settlement-plan")
+    public ResponseEntity<List<SettlementTransactionDTO>> getSettlementPlan(@PathVariable String groupId) {
+        return ResponseEntity.ok(splitGroupService.getAllSettlements(getCurrentUserEmail(), groupId));
+    }
+
 }

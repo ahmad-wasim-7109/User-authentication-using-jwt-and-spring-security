@@ -1,31 +1,14 @@
 package com.user.auth.service;
 
-import com.user.auth.converter.ExpenseConverter;
-import com.user.auth.converter.ExpenseSplitConverter;
 import com.user.auth.converter.GroupMemberConverter;
 import com.user.auth.dao.ExpenseRepository;
 import com.user.auth.dao.ExpenseSplitRepository;
 import com.user.auth.dao.GroupMemberRepository;
 import com.user.auth.dao.GroupRepository;
-import com.user.auth.dtos.AddGroupMemberRequest;
-import com.user.auth.dtos.ExpenseCreationRequest;
-import com.user.auth.dtos.ExpenseDTO;
-import com.user.auth.dtos.ExpenseSplitDTO;
-import com.user.auth.dtos.GroupCreationRequest;
-import com.user.auth.dtos.GroupCreationResponse;
-import com.user.auth.dtos.GroupExpenseDTO;
-import com.user.auth.dtos.GroupExpenseSummary;
-import com.user.auth.dtos.GroupMemberDTO;
-import com.user.auth.dtos.GroupUpdateRequest;
-import com.user.auth.dtos.IndividualShare;
-import com.user.auth.entity.Expense;
-import com.user.auth.entity.ExpenseSplit;
-import com.user.auth.entity.Group;
-import com.user.auth.entity.GroupMember;
-import com.user.auth.entity.User;
+import com.user.auth.dtos.*;
+import com.user.auth.entity.*;
 import com.user.auth.enums.NotificationType;
 import com.user.auth.enums.Role;
-import com.user.auth.enums.SettlementStatus;
 import com.user.auth.exception.InvalidDataException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,10 +17,14 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.user.auth.converter.ExpenseConverter.convertToExpense;
+import static com.user.auth.converter.ExpenseSplitConverter.convertToExpenseDTOs;
 import static com.user.auth.converter.ExpenseSplitConverter.convertToExpenseSplit;
+import static com.user.auth.converter.GroupConverter.convertToExpenseDTO;
 import static com.user.auth.converter.GroupConverter.convertToGroupCreationResponse;
 import static com.user.auth.converter.GroupMemberConverter.convertToGroupMemberDTO;
 import static com.user.auth.converter.GroupMemberConverter.createGroupMember;
+import static com.user.auth.enums.NotificationType.EXPENSE_ADDED;
+import static com.user.auth.enums.NotificationType.MEMBER_ADDED;
 import static java.lang.String.format;
 
 @RequiredArgsConstructor
@@ -46,7 +33,6 @@ public class SplitGroupService {
 
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
-    private final EmailService emailService;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final ExpenseRepository expenseRepository;
     private final NotificationService notificationService;
@@ -71,7 +57,7 @@ public class SplitGroupService {
                         !groupMember.getGroupMemberId().getMemberEmail().equals(group.getCreatedBy().getEmail()))
                 .map(groupMember -> {
                     notificationService.notifyUser(NotificationType.GROUP_CREATED, groupMember.getGroupMemberId().getMemberEmail(),
-                            group.getName(), group.getCreatedBy());
+                            group.getName(), group.getCreatedBy().getFullName());
                     return convertToGroupMemberDTO(groupMember);
                 })
                 .toList();
@@ -128,55 +114,38 @@ public class SplitGroupService {
         groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, loggedInEmail, true)
                 .filter(GroupMember::isAdmin)
                 .orElseThrow(() -> new InvalidDataException(format("%s is not an admin", loggedInEmail)));
-        boolean hasPendingSplits = expenseRepository.findAllExpensesWithSplits(groupId).stream()
-                .flatMap(expense -> expense.getSplits().stream())
-                .anyMatch(split -> split.getStatus() == SettlementStatus.PENDING);
 
-        if(hasPendingSplits) {
-            throw new InvalidDataException("There are unsettled/pending expenses");
-        }
         group.setDeleted(true);
         group.setUpdatedAt(new Date());
         groupRepository.save(group);
     }
 
-    public GroupExpenseSummary fetchAllGroupDetails(String loggedInEmail) {
+    public GroupExpenseSummary fetchAllGroupSummary(String loggedInEmail) {
 
-        List<Group> groups = groupRepository.findAllByUserId(loggedInEmail);
-        return new GroupExpenseSummary(groups.stream().map(this::convertToGroupExpenseDTO).toList());
+        List<Group> groups = groupRepository.findAllByUserId(loggedInEmail).stream()
+                .filter(group -> !group.isDeleted())
+                .toList();
+        List<GroupExpenseDTO> groupExpenseDTOs = groups.stream()
+                .map(group -> convertToGroupExpenseDTO(group, loggedInEmail)).toList();
+        double totalSettlementAmount = groupExpenseDTOs.stream()
+                .mapToDouble(GroupExpenseDTO::getSettlementAmount).sum();
+        return new GroupExpenseSummary(totalSettlementAmount, groupExpenseDTOs);
     }
 
-    public GroupExpenseDTO convertToGroupExpenseDTO(Group group) {
+    public GroupExpenseDTO convertToGroupExpenseDTO(Group group, String loggedInEmail) {
 
         List<Expense> expenses = expenseRepository.findAllExpensesWithSplits(group.getId());
 
-        return GroupExpenseDTO.builder()
-                .id(group.getId())
-                .groupName(group.getName())
-                .description(group.getDescription())
-                .createdBy(group.getCreatedBy().getEmail())
-                .createdAt(group.getCreatedAt())
-                .expenseAmount(expenses.stream().mapToDouble(Expense::getTotalAmount).sum())
-                .members(getGroupMemberDTO(group.getMembers()))
-                .expenseSplits(convertToExpenseDTOs(expenses))
-                .build();
-    }
-
-    public List<ExpenseDTO> convertToExpenseDTOs(List<Expense> expenses) {
-        return expenses.stream()
-                .map(expense -> {
-                    ExpenseDTO dto = ExpenseConverter.convertToExpenseDTO(expense);
-                    List<ExpenseSplitDTO> splitDTOs = expense.getSplits().stream()
-                            .map(ExpenseSplitConverter::convertToExpenseSplitDTO)
-                            .toList();
-                    dto.setExpenseSplits(splitDTOs);
-                    return dto;
-                })
-                .toList();
+        GroupExpenseDTO groupExpenseDTO = convertToExpenseDTO(group);
+        groupExpenseDTO.setSettlementAmount(calculateSettlementAmount(expenses, loggedInEmail));
+        groupExpenseDTO.setMembers(getGroupMemberDTO(group.getMembers()));
+        return groupExpenseDTO;
     }
 
     private List<GroupMemberDTO> getGroupMemberDTO(Set<GroupMember> members) {
-        return members.stream().map(GroupMemberConverter::convertToGroupMemberDTO).toList();
+        return members.stream()
+                .filter(GroupMember::isActive)
+                .map(GroupMemberConverter::convertToGroupMemberDTO).toList();
     }
 
     public void addExpenseToGroup(User user, String groupId, ExpenseCreationRequest request) {
@@ -212,6 +181,10 @@ public class SplitGroupService {
         request.getShares().forEach(share -> {
             ExpenseSplit split = convertToExpenseSplit(request, share, expense);
             expenseSplitRepository.save(split);
+            if (share.amountOwed() > 0) {
+                notificationService.notifyUser(EXPENSE_ADDED, share.owedBy(), share.owedBy().split("@")[0],
+                        share.amountOwed(), group.getName());
+            }
         });
     }
 
@@ -237,24 +210,139 @@ public class SplitGroupService {
         groupMemberRepository.save(groupMember);
     }
 
-    public void addMemberToGroup(String loggedInEmail, AddGroupMemberRequest addGroupMemberRequest) {
+    public void addMemberToGroup(User user, AddGroupMemberRequest addGroupMemberRequest) {
 
         Group group = groupRepository.findByIdAndIsDeleted(addGroupMemberRequest.getGroupId(), false)
                 .orElseThrow(() -> new InvalidDataException("Group not found"));
 
-        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(addGroupMemberRequest.getGroupId(), loggedInEmail, true)
+        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(addGroupMemberRequest.getGroupId(), user.getUsername(),
+                        true)
                 .filter(GroupMember::isAdmin)
                 .orElseThrow(() -> new InvalidDataException("User is not an admin"));
-
-        boolean isAnExistingMember = group.getMembers().stream()
-                .anyMatch(member -> member.getGroupMemberId().getMemberEmail().equals(addGroupMemberRequest.getMemberEmail()));
-
-        if (isAnExistingMember) {
-            throw new InvalidDataException("Member is not part of the group");
+        Optional<GroupMember> groupMember = groupMemberRepository.findByGroupIdMemberEmailAndIsActive(addGroupMemberRequest.getGroupId(),
+                addGroupMemberRequest.getMemberEmail(), true);
+        if (groupMember.isPresent()) {
+            throw new InvalidDataException("Member already exists");
         }
-        GroupMember groupMember = createGroupMember(addGroupMemberRequest.getMemberEmail(), group);
-        groupMember.setAdmin(addGroupMemberRequest.getRole() != null && addGroupMemberRequest.getRole() == Role.ADMIN);
-        groupMemberRepository.save(groupMember);
-        emailService.sendEmail(addGroupMemberRequest.getMemberEmail(), "Group Update", "You've been added to the group: " + group.getName());
+        group.getMembers().stream()
+                .filter(member -> member.getGroupMemberId().getMemberEmail().equals(addGroupMemberRequest.getMemberEmail())
+                        && !member.isActive())
+                .findAny()
+                .ifPresentOrElse(member -> {
+                    member.setActive(true);
+                    member.setAdmin(addGroupMemberRequest.getRole() != null && addGroupMemberRequest.getRole() == Role.ADMIN);
+                    groupMemberRepository.save(member);
+                }, () -> {
+                    final var newGroupMember = createGroupMember(addGroupMemberRequest.getMemberEmail(), group);
+                    newGroupMember.setAdmin(addGroupMemberRequest.getRole() != null && addGroupMemberRequest.getRole() == Role.ADMIN);
+                    groupMemberRepository.save(newGroupMember);
+                });
+
+        notificationService.notifyUser(MEMBER_ADDED, addGroupMemberRequest.getMemberEmail(),
+                addGroupMemberRequest.getMemberEmail().split("@")[0], group.getName(), user.getFullName());
+
+    }
+
+
+    public double calculateSettlementAmount(List<Expense> expenses, String userEmail) {
+
+        double settlementAmount = 0.0;
+        final var transactions = getLoggedInUserSettlements(expenses, userEmail);
+        for (final var transaction : transactions) {
+            if (transaction.getFromUser().equals(userEmail)) {
+                settlementAmount -= transaction.getAmount();
+            } else if (transaction.getToUser().equals(userEmail)) {
+                settlementAmount += transaction.getAmount();
+            }
+        }
+        return settlementAmount;
+    }
+
+    public Map<String, Double> calculateNetBalances(List<Expense> expenses) {
+        Map<String, Double> balances = new HashMap<>();
+
+        for (Expense expense : expenses) {
+            String payer = expense.getPaidBy();
+            double paidAmount = expense.getTotalAmount();
+
+            balances.put(payer, balances.getOrDefault(payer, 0.0) + paidAmount);
+
+            for (ExpenseSplit split : expense.getSplits()) {
+
+                String debtor = split.getOwedBy();
+                double owedAmount = split.getAmountOwed();
+
+                balances.put(debtor, balances.getOrDefault(debtor, 0.0) - owedAmount);
+            }
+        }
+
+        return balances;
+    }
+
+    public List<SettlementTransactionDTO> minimizeTransactions(Map<String, Double> balances) {
+        PriorityQueue<Balance> creditors = new PriorityQueue<>((a, b) -> Double.compare(b.getAmount(), a.getAmount()));
+        PriorityQueue<Balance> debtors = new PriorityQueue<>((a, b) -> Double.compare(b.getAmount(), a.getAmount()));
+
+        for (Map.Entry<String, Double> entry : balances.entrySet()) {
+            if (entry.getValue() > 0) {
+                creditors.offer(new Balance(entry.getKey(), entry.getValue()));
+            } else if (entry.getValue() < 0) {
+                debtors.offer(new Balance(entry.getKey(), -entry.getValue()));
+            }
+        }
+
+        List<SettlementTransactionDTO> transactions = new ArrayList<>();
+
+        while (!creditors.isEmpty() && !debtors.isEmpty()) {
+            Balance creditor = creditors.poll();
+            Balance debtor = debtors.poll();
+
+            assert debtor != null;
+            double settleAmount = Math.min(creditor.getAmount(), debtor.getAmount());
+            String from = debtor.getEmail();
+            String to = creditor.getEmail();
+            transactions.add(new SettlementTransactionDTO(from, to, settleAmount));
+
+            if (creditor.getAmount() > settleAmount) {
+                creditors.offer(new Balance(creditor.getEmail(), creditor.getAmount() - settleAmount));
+            }
+            if (debtor.getAmount() > settleAmount) {
+                debtors.offer(new Balance(debtor.getEmail(), debtor.getAmount() - settleAmount));
+            }
+        }
+        return transactions;
+    }
+
+    public List<SettlementTransactionDTO> getLoggedInUserSettlements(List<Expense> expenses, String userEmail) {
+
+        Map<String, Double> balances = calculateNetBalances(expenses);
+
+        List<SettlementTransactionDTO> allTransactions = minimizeTransactions(balances);
+
+        return allTransactions.stream()
+                .filter(tx -> tx.getFromUser().equals(userEmail) || tx.getToUser().equals(userEmail))
+                .toList();
+    }
+
+    public List<SettlementTransactionDTO> getAllSettlements(String loggedInEmail, String groupId) {
+        Group group = groupRepository.findByIdAndIsDeleted(groupId, false)
+                .orElseThrow(() -> new InvalidDataException("Group not found"));
+        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, loggedInEmail, true)
+                .orElseThrow(() -> new InvalidDataException("User is not an admin"));
+        List<Expense> expenses = expenseRepository.findAllExpensesWithSplits(group.getId());
+        return getLoggedInUserSettlements(expenses, loggedInEmail);
+    }
+
+    public GroupExpenseDTO getGroupInformation(String currentUserEmail, String groupId) {
+        Group group = groupRepository.findByIdAndIsDeleted(groupId, false)
+                .orElseThrow(() -> new InvalidDataException("Group not found"));
+
+        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, currentUserEmail, true)
+                .orElseThrow(() -> new InvalidDataException("User is not an active user"));
+
+        List<Expense> expenses = expenseRepository.findAllExpensesWithSplits(group.getId());
+        GroupExpenseDTO groupExpenseDTO = convertToExpenseDTO(group);
+        groupExpenseDTO.setExpenseSplits(convertToExpenseDTOs(expenses));
+        return groupExpenseDTO;
     }
 }

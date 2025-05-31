@@ -18,9 +18,10 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("User Authentication API")
-                        .version("1.0")
-                        .description("API for user registration, login, and OTP verification"))
+                        .title("BillBuddies API")
+                        .version("1.0.0")
+                        .description("BillBuddies help you split bills, track expenses, and settle up easily, with " +
+                                "your groups"))
                 .components(new Components()
                         .addSecuritySchemes("AuthorizationHeader", new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)

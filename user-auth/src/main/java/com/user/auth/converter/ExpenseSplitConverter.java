@@ -1,13 +1,14 @@
 package com.user.auth.converter;
 
 import com.user.auth.dtos.ExpenseCreationRequest;
+import com.user.auth.dtos.ExpenseDTO;
 import com.user.auth.dtos.ExpenseSplitDTO;
 import com.user.auth.dtos.IndividualShare;
 import com.user.auth.entity.Expense;
 import com.user.auth.entity.ExpenseSplit;
-import com.user.auth.enums.SettlementStatus;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 public class ExpenseSplitConverter {
@@ -19,7 +20,6 @@ public class ExpenseSplitConverter {
                 .expense(expense)
                 .amountOwed(share.amountOwed())
                 .owedBy(share.owedBy())
-                .status(expenseCreationRequest.getPaidBy().equals(share.owedBy()) ? SettlementStatus.SETTLED : SettlementStatus.PENDING)
                 .createdAt(new Date())
                 .updatedAt(new Date())
                 .build();
@@ -27,12 +27,23 @@ public class ExpenseSplitConverter {
 
     public static ExpenseSplitDTO convertToExpenseSplitDTO(ExpenseSplit expenseSplit) {
         return ExpenseSplitDTO.builder()
-                .expenseId(expenseSplit.getExpense().getId())
                 .expenseSplitId(expenseSplit.getId())
                 .owedBy(expenseSplit.getOwedBy())
                 .amountOwed(expenseSplit.getAmountOwed())
                 .splitAt(expenseSplit.getCreatedAt())
-                .isSettled(expenseSplit.getStatus().equals(SettlementStatus.SETTLED))
                 .build();
+    }
+
+    public static List<ExpenseDTO> convertToExpenseDTOs(List<Expense> expenses) {
+        return expenses.stream()
+                .map(expense -> {
+                    ExpenseDTO dto = ExpenseConverter.convertToExpenseDTO(expense);
+                    List<ExpenseSplitDTO> splitDTOs = expense.getSplits().stream()
+                            .map(ExpenseSplitConverter::convertToExpenseSplitDTO)
+                            .toList();
+                    dto.setExpenseSplits(splitDTOs);
+                    return dto;
+                })
+                .toList();
     }
 }

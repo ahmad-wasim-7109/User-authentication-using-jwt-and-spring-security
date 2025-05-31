@@ -1,10 +1,7 @@
 package com.user.auth.entity;
 
-import com.user.auth.enums.SettlementStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -36,10 +33,6 @@ public class ExpenseSplit {
 
     @Column(name = "owed_by", nullable = false)
     private String owedBy;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "settlement_status", nullable = false)
-    private SettlementStatus status;
 
     @CreationTimestamp
     @Column(updatable = false, name = "created_at")

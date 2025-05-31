@@ -81,9 +81,7 @@ public class AuthenticationService {
                 .role(Role.valueOf(request.role()))
                 .build();
         userRepository.save(user);
-        log.info("User registered successfully: {}", request.email());
-        var otp = generateAndStoreOtpInRedis(request.email());
-        notificationService.notifyUser(OTP_GENERATED, request.email(), otp);
+
         return RegisterResponse.builder()
                 .message("User registered successfully")
                 .userName(request.email())
