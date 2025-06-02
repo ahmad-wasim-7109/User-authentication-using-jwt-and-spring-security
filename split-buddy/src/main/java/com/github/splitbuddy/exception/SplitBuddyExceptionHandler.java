@@ -15,6 +15,7 @@ import org.springframework.web.context.request.WebRequest;
 
 import java.util.Collection;
 
+import static com.github.splitbuddy.utils.SplitUtil.buildErrorMap;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 import static org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
@@ -30,6 +31,8 @@ public class SplitBuddyExceptionHandler extends BaseApiExceptionHandler {
                                                                   HttpStatus status, WebRequest request) {
         final var bindingResult = methodArgumentNotValidException.getBindingResult();
 
+        log.info("Handling MethodArgumentNotValidException for BillBuddy, error : {}",
+                buildErrorMap(methodArgumentNotValidException, "Invalid Method Argument"));
         if (bindingResult.hasFieldErrors()) {
             log.debug("Handling MethodArgumentNotValidException for BillBuddy, error : {}", bindingResult.getFieldErrors());
             return status(BAD_REQUEST).body(bindingResult.getFieldErrors().stream()
@@ -49,6 +52,8 @@ public class SplitBuddyExceptionHandler extends BaseApiExceptionHandler {
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<SplitBuddyAPIErrorResponse> handleConstraintViolationException(ConstraintViolationException ex) {
+        log.info("Handling ConstraintViolationException for BillBuddy, error : {}", buildErrorMap(ex, "Constraint " +
+                "Violation"));
         return status(BAD_REQUEST).body(buildErrorResponse(builder -> {
             final Collection<SplitBuddyAPIErrorResponse.ApiFieldErrorResponseEntry> fieldErrors = ex.getConstraintViolations().stream()
                     .map(constraintViolation -> SplitBuddyAPIErrorResponse.ApiFieldErrorResponseEntry.builder()
@@ -64,7 +69,7 @@ public class SplitBuddyExceptionHandler extends BaseApiExceptionHandler {
 
     @ExceptionHandler({InvalidDataException.class, UserNotFoundException.class, UserAlreadyExistsException.class})
     public ResponseEntity<SplitBuddyAPIErrorResponse> handleInvalidDataException(SplitBuddyException exception) {
-        log.error("Invalid data exception occurred: {}", exception.getMessage());
+        log.error("Invalid data exception occurred: {}", buildErrorMap(exception, exception.getMessage()));
 
         return status(exception.getHttpStatusCode()).body(buildErrorResponse(builder ->
                 builder.title(exception.getTitle())
@@ -74,7 +79,7 @@ public class SplitBuddyExceptionHandler extends BaseApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<SplitBuddyAPIErrorResponse> handleUnknownException(Exception ex) {
-        log.error("Unknown exception occurred: {}", ex.getMessage());
+        log.error("Unknown exception occurred: {}", buildErrorMap(ex, "Unknown error"));
         return status(HttpStatus.INTERNAL_SERVER_ERROR).body(buildErrorResponse(builder ->
                 builder.title("Unknown error")
                         .status(HttpStatus.INTERNAL_SERVER_ERROR.value())

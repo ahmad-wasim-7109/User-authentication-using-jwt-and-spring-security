@@ -223,15 +223,7 @@ public class AuthenticationService {
             if (userName == null) {
                 throw new InvalidDataException("Invalid refresh token");
             }
-            if (!jwtUtils.isTokenValid(refreshToken)) {
-                throw new InvalidDataException("Refresh token has expired");
-            }
-            final var refreshKey = sha256Hex(userName + "_refresh_token");
-            String storedToken = redisService.get(refreshKey);
-
-            if (!Objects.equals(storedToken, refreshToken)) {
-                throw new InvalidDataException("Refresh token mismatch or not found");
-            }
+            validateRefreshToken(userName, refreshToken);
             String newAccessToken = jwtUtils.generateToken(userName);
             return LoginResponse.builder()
                     .accessToken(newAccessToken)
@@ -244,6 +236,19 @@ public class AuthenticationService {
         } catch (Exception e) {
             log.error("Unexpected error during refresh token", e);
             throw new SplitBuddyException("Unexpected error during refresh token", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        }
+    }
+
+    private void validateRefreshToken(String userName, String refreshToken) {
+
+        if (!jwtUtils.isTokenValid(refreshToken)) {
+            throw new InvalidDataException("Refresh token has expired");
+        }
+        final var refreshKey = sha256Hex(userName + "_refresh_token");
+        String storedToken = redisService.get(refreshKey);
+
+        if (!Objects.equals(storedToken, refreshToken)) {
+            throw new InvalidDataException("Refresh token mismatch or not found");
         }
     }
 }
