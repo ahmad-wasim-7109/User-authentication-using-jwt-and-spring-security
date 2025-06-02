@@ -27,6 +27,7 @@ import static com.github.splitbuddy.converter.GroupMemberConverter.convertToGrou
 import static com.github.splitbuddy.converter.GroupMemberConverter.createGroupMember;
 import static com.github.splitbuddy.enums.NotificationType.EXPENSE_ADDED;
 import static com.github.splitbuddy.enums.NotificationType.MEMBER_ADDED;
+import static com.github.splitbuddy.utils.SplitUtil.generateUUID;
 import static java.lang.String.format;
 
 @Slf4j
@@ -41,20 +42,19 @@ public class SplitGroupService {
     private final NotificationService notificationService;
 
     public GroupCreationResponse createGroup(User user, GroupCreationRequest groupCreationRequest) {
-        if (!groupCreationRequest.getMembers().isEmpty()) {
-            if (!groupCreationRequest.getMembers().contains(user.getUsername())) {
-                groupCreationRequest.getMembers().add(user.getUsername());
-            }
-            Group group = convertToGroup(groupCreationRequest, user);
-            groupRepository.save(group);
-            List<GroupMemberDTO> activeMembers = getGroupMembersAndSendNotification(group);
-            return convertToGroupCreationResponse(group, activeMembers);
+        if (!groupCreationRequest.getMembers().contains(user.getUsername())) {
+            groupCreationRequest.getMembers().add(user.getUsername());
         }
-        throw new InvalidDataException("Invalid data");
+        Group group = convertToGroup(groupCreationRequest, user);
+        groupRepository.save(group);
+        log.info("Group created successfully for group name: {}", groupCreationRequest.getGroupName());
+        List<GroupMemberDTO> activeMembers = getGroupMembersAndSendNotification(group);
+        return convertToGroupCreationResponse(group, activeMembers);
     }
 
     private List<GroupMemberDTO> getGroupMembersAndSendNotification(Group group) {
 
+        log.info("Started sending notification to group members");
         return group.getMembers().stream()
                 .filter(groupMember -> groupMember.isActive() &&
                         !groupMember.getGroupMemberId().getMemberEmail().equals(group.getCreatedBy().getEmail()))
@@ -68,7 +68,7 @@ public class SplitGroupService {
 
     private Group convertToGroup(GroupCreationRequest groupCreationRequest, User user) {
         Group group = new Group();
-        group.setId(UUID.randomUUID().toString().replace("-", ""));
+        group.setId(generateUUID());
         group.setName(groupCreationRequest.getGroupName());
         group.setDescription(groupCreationRequest.getDescription());
         group.setCreatedBy(user);
@@ -82,22 +82,21 @@ public class SplitGroupService {
     }
 
     private Set<GroupMember> getGroupMembers(GroupCreationRequest groupCreationRequest, Group group, User user) {
-        Set<GroupMember> groupMembers = new HashSet<>();
 
-        groupCreationRequest.getMembers().forEach(email -> {
-            GroupMember groupMember = createGroupMember(email, group);
-            groupMember.setAdmin(email.equals(user.getUsername()));
-            groupMembers.add(groupMember);
-            groupMemberRepository.save(groupMember);
-        });
-        return groupMembers;
+        log.info("Creating group members for group id: {}", group.getId());
+        return groupCreationRequest.getMembers().stream()
+                .map(email -> {
+                    GroupMember groupMember = createGroupMember(email, group);
+                    groupMember.setAdmin(email.equals(user.getUsername()));
+                    groupMemberRepository.save(groupMember);
+                    return groupMember;
+                })
+                .collect(Collectors.toSet());
     }
 
     public void updateGroupInformation(String loggedInEmail, GroupUpdateRequest groupUpdateRequest) {
 
-        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupUpdateRequest.getGroupId(), loggedInEmail, true)
-                .filter(GroupMember::isAdmin)
-                .orElseThrow(() -> new InvalidDataException("User is not present/user is verified"));
+       checkIfLoggedInUserIsAdmin(groupUpdateRequest.getGroupId(), loggedInEmail);
 
         groupRepository.findByIdAndIsDeleted(groupUpdateRequest.getGroupId(), false)
                 .map(group -> {
@@ -111,8 +110,7 @@ public class SplitGroupService {
 
     public void deleteGroup(String loggedInEmail, String groupId) {
 
-        Group group = groupRepository.findByIdAndIsDeleted(groupId, false)
-                .orElseThrow(() -> new InvalidDataException("Group not found"));
+        Group group = checkForActiveGroup(groupId);
 
         groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, loggedInEmail, true)
                 .filter(GroupMember::isAdmin)
@@ -124,7 +122,7 @@ public class SplitGroupService {
     }
 
     public GroupExpenseSummary fetchAllGroupSummary(String loggedInEmail) {
-
+        log.info("Fetching all group summary for user: {}", loggedInEmail);
         List<Group> groups = groupRepository.findAllByUserId(loggedInEmail).stream()
                 .filter(group -> !group.isDeleted())
                 .toList();
@@ -157,10 +155,28 @@ public class SplitGroupService {
     }
 
     public void addExpenseToGroup(User user, String groupId, ExpenseCreationRequest request) {
+        log.info("Adding expense to group id: {}", groupId);
+        Group group = checkForActiveGroup(groupId);
 
-        Group group = groupRepository.findByIdAndIsDeleted(groupId, false)
-                .orElseThrow(() -> new InvalidDataException("Group not found"));
+        validateExpenseCreationRequest(user, group, request);
 
+        ExpenseValidationStrategyFactory.getStrategy(request.getSplitType())
+                .validate(request);
+
+        Expense expense = convertToExpense(group, request, user);
+        expenseRepository.save(expense);
+        request.getShares().forEach(share -> {
+            ExpenseSplit split = convertToExpenseSplit(share, expense);
+            expenseSplitRepository.save(split);
+            if (share.amountOwed() > 0) {
+                notificationService.notifyUser(EXPENSE_ADDED, share.owedBy(), share.owedBy().split("@")[0],
+                        share.amountOwed(), group.getName());
+            }
+        });
+    }
+
+    private void validateExpenseCreationRequest(User user, Group group, ExpenseCreationRequest request) {
+        log.info("Validating expense creation request for user: {}", user.getUsername());
         boolean isMember = group.getMembers().stream()
                 .anyMatch(member ->
                         member.getGroupMemberId().getMemberEmail().equals(user.getUsername()) && member.isActive());
@@ -183,35 +199,13 @@ public class SplitGroupService {
         if (!groupMemberEmails.contains(request.getPaidBy())) {
             throw new InvalidDataException("Payer is not a member of the group");
         }
-        ExpenseValidationStrategyFactory.getStrategy(request.getSplitType())
-                .validate(request);
-
-        Expense expense = convertToExpense(group, request, user);
-        expenseRepository.save(expense);
-        request.getShares().forEach(share -> {
-            ExpenseSplit split = convertToExpenseSplit(share, expense);
-            expenseSplitRepository.save(split);
-            if (share.amountOwed() > 0) {
-                notificationService.notifyUser(EXPENSE_ADDED, share.owedBy(), share.owedBy().split("@")[0],
-                        share.amountOwed(), group.getName());
-            }
-        });
     }
 
     public void deleteGroupMember(String loggerInEmail, String groupId, String memberEmail) {
+        log.info("Deleting group member: {} from group: {}", memberEmail, groupId);
+        checkForActiveGroup(groupId);
 
-        groupRepository.findByIdAndIsDeleted(groupId, false)
-                .orElseThrow(() -> new InvalidDataException("Group not found"));
-
-        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, loggerInEmail, true)
-                .filter(GroupMember::isAdmin)
-                .orElseThrow(() -> new InvalidDataException(format("%s is not an admin", loggerInEmail)));
-
-        List<ExpenseSplit> pendingSplits = expenseSplitRepository.findPendingSplitsByUserEmailAndGroupId(memberEmail, groupId);
-
-        if (!pendingSplits.isEmpty()) {
-            throw new InvalidDataException("There are unsettled expenses");
-        }
+        checkIfLoggedInUserIsAdmin(groupId, loggerInEmail);
 
         GroupMember groupMember = groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, memberEmail, true)
                 .orElseThrow(() -> new InvalidDataException(format("%s is not an active member", memberEmail)));
@@ -221,14 +215,10 @@ public class SplitGroupService {
     }
 
     public void addMemberToGroup(User user, AddGroupMemberRequest addGroupMemberRequest) {
+        log.info("Adding member: {} to group: {}", addGroupMemberRequest.getMemberEmail(), addGroupMemberRequest.getGroupId());
+        Group group = checkForActiveGroup(addGroupMemberRequest.getGroupId());
 
-        Group group = groupRepository.findByIdAndIsDeleted(addGroupMemberRequest.getGroupId(), false)
-                .orElseThrow(() -> new InvalidDataException("Group not found"));
-
-        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(addGroupMemberRequest.getGroupId(), user.getUsername(),
-                        true)
-                .filter(GroupMember::isAdmin)
-                .orElseThrow(() -> new InvalidDataException("User is not an admin"));
+        checkIfLoggedInUserIsAdmin(group.getId(), user.getUsername());
         Optional<GroupMember> groupMember = groupMemberRepository.findByGroupIdMemberEmailAndIsActive(addGroupMemberRequest.getGroupId(),
                 addGroupMemberRequest.getMemberEmail(), true);
         if (groupMember.isPresent()) {
@@ -248,14 +238,14 @@ public class SplitGroupService {
                     groupMemberRepository.save(newGroupMember);
                 });
 
+        log.info("Notifying member: {}", addGroupMemberRequest.getMemberEmail());
         notificationService.notifyUser(MEMBER_ADDED, addGroupMemberRequest.getMemberEmail(),
                 addGroupMemberRequest.getMemberEmail().split("@")[0], group.getName(), user.getFullName());
 
     }
 
-
     public double calculateSettlementAmount(List<Expense> expenses, String userEmail) {
-
+        log.info("Calculating settlement amount for user: {}", userEmail);
         double settlementAmount = 0.0;
         final var transactions = getLoggedInUserSettlements(expenses, userEmail);
         for (final var transaction : transactions) {
@@ -269,6 +259,7 @@ public class SplitGroupService {
     }
 
     public Map<String, Double> calculateNetBalances(List<Expense> expenses) {
+        log.info("Calculating net balances");
         Map<String, Double> balances = new HashMap<>();
 
         for (Expense expense : expenses) {
@@ -290,6 +281,7 @@ public class SplitGroupService {
     }
 
     public List<SettlementTransactionDTO> minimizeTransactions(Map<String, Double> balances) {
+        log.info("Minimizing transactions");
         PriorityQueue<Balance> creditors = new PriorityQueue<>((a, b) -> Double.compare(b.getAmount(), a.getAmount()));
         PriorityQueue<Balance> debtors = new PriorityQueue<>((a, b) -> Double.compare(b.getAmount(), a.getAmount()));
 
@@ -324,7 +316,7 @@ public class SplitGroupService {
     }
 
     public List<SettlementTransactionDTO> getLoggedInUserSettlements(List<Expense> expenses, String userEmail) {
-
+        log.info("Getting logged in user settlements for user email : {}", userEmail);
         Map<String, Double> balances = calculateNetBalances(expenses);
 
         List<SettlementTransactionDTO> allTransactions = minimizeTransactions(balances);
@@ -335,8 +327,8 @@ public class SplitGroupService {
     }
 
     public List<SettlementTransactionDTO> getAllSettlements(String loggedInEmail, String groupId) {
-        Group group = groupRepository.findByIdAndIsDeleted(groupId, false)
-                .orElseThrow(() -> new InvalidDataException("Group not found"));
+        log.info("Getting all settlements for group: {}", groupId);
+        Group group = checkForActiveGroup(groupId);
         groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, loggedInEmail, true)
                 .orElseThrow(() -> new InvalidDataException("User is not an admin"));
         List<Expense> expenses = expenseRepository.findAllExpensesWithSplits(group.getId());
@@ -344,8 +336,8 @@ public class SplitGroupService {
     }
 
     public GroupExpenseDTO getGroupInformation(String currentUserEmail, String groupId) {
-        Group group = groupRepository.findByIdAndIsDeleted(groupId, false)
-                .orElseThrow(() -> new InvalidDataException("Group not found"));
+        log.info("Getting group information for group: {}", groupId);
+        Group group = checkForActiveGroup(groupId);
 
         groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, currentUserEmail, true)
                 .orElseThrow(() -> new InvalidDataException("User is not an active user"));
@@ -354,5 +346,16 @@ public class SplitGroupService {
         GroupExpenseDTO groupExpenseDTO = convertToExpenseDTO(group);
         groupExpenseDTO.setExpenseSplits(convertToExpenseDTOs(expenses));
         return groupExpenseDTO;
+    }
+
+    public void checkIfLoggedInUserIsAdmin(String groupId, String email) {
+        groupMemberRepository.findByGroupIdMemberEmailAndIsActive(groupId, email, true)
+                .filter(GroupMember::isAdmin)
+                .orElseThrow(() -> new InvalidDataException("User is not present/user is verified"));
+    }
+
+    public Group checkForActiveGroup(String groupId) {
+        return groupRepository.findByIdAndIsDeleted(groupId, false)
+                .orElseThrow(() -> new InvalidDataException("Group not found"));
     }
 }

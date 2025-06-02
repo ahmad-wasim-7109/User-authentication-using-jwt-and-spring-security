@@ -9,11 +9,13 @@ import com.github.splitbuddy.entity.User;
 import java.util.Date;
 import java.util.UUID;
 
+import static com.github.splitbuddy.utils.SplitUtil.generateUUID;
+
 public class ExpenseConverter {
 
     public static Expense convertToExpense(Group group, ExpenseCreationRequest request, User user) {
         return Expense.builder()
-                .id(UUID.randomUUID().toString().replace("-", ""))
+                .id(generateUUID())
                 .description(request.getDescription())
                 .totalAmount(request.getTotalAmount())
                 .paidBy(request.getPaidBy())

@@ -10,11 +10,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import static com.github.splitbuddy.utils.SplitUtil.generateUUID;
+
 public class ExpenseSplitConverter {
 
     public static ExpenseSplit convertToExpenseSplit(IndividualShare share, Expense expense) {
         return ExpenseSplit.builder()
-                .id(UUID.randomUUID().toString().replace("-", ""))
+                .id(generateUUID())
                 .expense(expense)
                 .amountOwed(share.amountOwed())
                 .owedBy(share.owedBy())

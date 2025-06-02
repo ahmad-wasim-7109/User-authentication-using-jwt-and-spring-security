@@ -4,7 +4,6 @@ import com.github.splitbuddy.dao.UserRepository;
 import com.github.splitbuddy.dtos.*;
 import com.github.splitbuddy.entity.User;
 import com.github.splitbuddy.enums.Role;
-import com.github.splitbuddy.exception.InvalidCredentialsException;
 import com.github.splitbuddy.exception.InvalidDataException;
 import com.github.splitbuddy.exception.SplitBuddyException;
 import com.github.splitbuddy.exception.UserAlreadyExistsException;
@@ -73,23 +72,31 @@ public class AuthenticationService {
                 userRepository.delete(user);
             }
         });
-        User user = User.builder()
+        User user = createUser(request);
+        userRepository.save(user);
+        return buildRegistrationResponse(request);
+    }
+
+    private RegisterResponse buildRegistrationResponse(RegisterRequest request) {
+        return RegisterResponse.builder()
+                .message("User registered successfully")
+                .userName(request.email())
+                .fullName(request.fullName())
+                .isEmailVerified(false)
+                .build();
+    }
+
+    private User createUser(RegisterRequest request) {
+        return User.builder()
                 .email(request.email())
                 .fullName(request.fullName())
                 .password(passwordEncoder.encode(request.password()))
                 .isEmailVerified(false)
                 .role(Role.valueOf(request.role()))
                 .build();
-        userRepository.save(user);
-
-        return RegisterResponse.builder()
-                .message("User registered successfully")
-                .userName(request.email())
-                .fullName(request.fullName())
-                .isEmailVerified(false).build();
     }
 
-    public LoginResponse login(LoginRequest request)  {
+    public LoginResponse login(LoginRequest request) throws AuthenticationException {
         try {
             var authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
@@ -111,14 +118,13 @@ public class AuthenticationService {
                     .refreshToken(refreshToken)
                     .user(userToGroupMemberDTO(user))
                     .build();
-        }  catch (AuthenticationException e) {
+        } catch (AuthenticationException e) {
             throw new InvalidDataException("username/password is not correct");
         } catch (Exception e) {
             log.error("Error while logging in", e);
             throw new SplitBuddyException("Error while logging in", HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
     }
-
 
     public LoginResponse handleGoogleCallback(String code) {
         try {
@@ -179,7 +185,7 @@ public class AuthenticationService {
 
     public void verifyOtp(VerifyOtpRequest otpRequest) {
         final var redisKey = sha256Hex(otpRequest.userName() + "_otp");
-        final var storedOtp = (String) redisService.get(redisKey);
+        final var storedOtp = redisService.get(redisKey);
 
         if (storedOtp == null || !MessageDigest.isEqual(
                 storedOtp.getBytes(StandardCharsets.UTF_8),
