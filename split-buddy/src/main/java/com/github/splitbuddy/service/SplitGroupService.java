@@ -10,7 +10,9 @@ import com.github.splitbuddy.entity.*;
 import com.github.splitbuddy.enums.NotificationType;
 import com.github.splitbuddy.enums.Role;
 import com.github.splitbuddy.exception.InvalidDataException;
+import com.github.splitbuddy.validation.ExpenseValidationStrategyFactory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -27,6 +29,7 @@ import static com.github.splitbuddy.enums.NotificationType.EXPENSE_ADDED;
 import static com.github.splitbuddy.enums.NotificationType.MEMBER_ADDED;
 import static java.lang.String.format;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class SplitGroupService {
@@ -134,12 +137,17 @@ public class SplitGroupService {
 
     public GroupExpenseDTO convertToGroupExpenseDTO(Group group, String loggedInEmail) {
 
-        List<Expense> expenses = expenseRepository.findAllExpensesWithSplits(group.getId());
+        try {
+            List<Expense> expenses = expenseRepository.findAllExpensesWithSplits(group.getId());
 
-        GroupExpenseDTO groupExpenseDTO = convertToExpenseDTO(group);
-        groupExpenseDTO.setSettlementAmount(calculateSettlementAmount(expenses, loggedInEmail));
-        groupExpenseDTO.setMembers(getGroupMemberDTO(group.getMembers()));
-        return groupExpenseDTO;
+            GroupExpenseDTO groupExpenseDTO = convertToExpenseDTO(group);
+            groupExpenseDTO.setSettlementAmount(calculateSettlementAmount(expenses, loggedInEmail));
+            groupExpenseDTO.setMembers(getGroupMemberDTO(group.getMembers()));
+            return groupExpenseDTO;
+        }  catch (Exception e) {
+            log.error("Error while fetching group expense summary", e);
+            throw new InvalidDataException("Invalid data");
+        }
     }
 
     private List<GroupMemberDTO> getGroupMemberDTO(Set<GroupMember> members) {
@@ -175,6 +183,8 @@ public class SplitGroupService {
         if (!groupMemberEmails.contains(request.getPaidBy())) {
             throw new InvalidDataException("Payer is not a member of the group");
         }
+        ExpenseValidationStrategyFactory.getStrategy(request.getSplitType())
+                .validate(request);
 
         Expense expense = convertToExpense(group, request, user);
         expenseRepository.save(expense);

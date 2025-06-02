@@ -11,6 +11,7 @@ import java.util.List;
 public interface ExpenseRepository extends JpaRepository<Expense, String> {
 
     List<Expense> findAllByGroupId(String groupId);
+
     @Query("DELETE FROM Expense e WHERE e.group.id IN ?1")
     void deleteAllByGroupId(List<String> groupIds);
 

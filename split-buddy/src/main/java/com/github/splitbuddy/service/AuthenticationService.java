@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -88,11 +89,10 @@ public class AuthenticationService {
                 .isEmailVerified(false).build();
     }
 
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request)  {
         try {
             var authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password()));
-
             final var user = (User) authentication.getPrincipal();
 
             if (!user.getIsEmailVerified()) {
@@ -111,10 +111,11 @@ public class AuthenticationService {
                     .refreshToken(refreshToken)
                     .user(userToGroupMemberDTO(user))
                     .build();
-
-        } catch (UsernameNotFoundException exception) {
-            log.error("Authentication failed for user: {}", request.email(), exception);
-            throw new InvalidCredentialsException("Invalid email or password");
+        }  catch (AuthenticationException e) {
+            throw new InvalidDataException("username/password is not correct");
+        } catch (Exception e) {
+            log.error("Error while logging in", e);
+            throw new SplitBuddyException("Error while logging in", HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
     }
 

@@ -1,5 +1,6 @@
 package com.github.splitbuddy.dtos;
 
+import com.github.splitbuddy.enums.SplitType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,9 @@ public class ExpenseCreationRequest {
 
     @NotBlank(message = "Paid by email is required")
     private String paidBy;
+
+    @NotNull(message = "Split type is required")
+    private SplitType splitType;
 
     @Valid
     @NotNull(message = "Shares cannot be null")
