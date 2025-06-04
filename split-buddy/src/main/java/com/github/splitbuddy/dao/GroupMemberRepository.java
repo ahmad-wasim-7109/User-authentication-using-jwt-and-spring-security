@@ -14,6 +14,4 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, String
             "= ?2 AND gm.isActive = ?3")
     Optional<GroupMember> findByGroupIdMemberEmailAndIsActive(String groupId, String email, boolean isActive);
 
-    @Query("DELETE FROM GroupMember gm WHERE gm.groupMemberId.group.id = ?1")
-    void deleteAllByGroupId(String groupId);
 }

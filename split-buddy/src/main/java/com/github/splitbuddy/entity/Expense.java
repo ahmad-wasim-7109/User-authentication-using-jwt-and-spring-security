@@ -48,11 +48,4 @@ public class Expense {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Date updatedAt;
-
-    @PrePersist
-    public void prePersist() {
-        if (this.id == null) {
-            this.id = java.util.UUID.randomUUID().toString().replace("-", "");
-        }
-    }
 }

@@ -31,7 +31,7 @@ public class OpenApiConfig {
                 .tags(Arrays.asList(
                 new Tag().name("1. Authentication Controller").description("Handles user authentication"),
                 new Tag().name("2. Split Controller").description("Handles splitting logic"),
-                new Tag().name("3. Group Controller").description("Manages group operations for split")
+                new Tag().name("3. User Controller").description("Manages user related operations")
         ));
     }
 }

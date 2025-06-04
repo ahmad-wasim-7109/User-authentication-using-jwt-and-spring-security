@@ -8,6 +8,7 @@ import com.github.splitbuddy.exception.InvalidDataException;
 import com.github.splitbuddy.exception.SplitBuddyException;
 import com.github.splitbuddy.exception.UserAlreadyExistsException;
 import com.github.splitbuddy.utils.JwtUtils;
+import com.github.splitbuddy.utils.SplitUtil;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.lang.Assert;
 import lombok.RequiredArgsConstructor;
@@ -88,6 +89,7 @@ public class AuthenticationService {
 
     private User createUser(RegisterRequest request) {
         return User.builder()
+                .id(SplitUtil.generateUUID())
                 .email(request.email())
                 .fullName(request.fullName())
                 .password(passwordEncoder.encode(request.password()))

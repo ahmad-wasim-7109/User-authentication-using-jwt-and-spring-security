@@ -3,8 +3,6 @@ package com.github.splitbuddy.validation;
 import com.github.splitbuddy.dtos.ExpenseCreationRequest;
 import com.github.splitbuddy.exception.InvalidDataException;
 
-import java.util.Objects;
-
 public class EqualShareValidationStrategy implements ExpenseValidationStrategy {
     @Override
     public void validate(ExpenseCreationRequest request) throws InvalidDataException {

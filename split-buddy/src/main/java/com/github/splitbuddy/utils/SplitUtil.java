@@ -1,6 +1,5 @@
 package com.github.splitbuddy.utils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.PrintWriter;
@@ -11,8 +10,6 @@ import java.util.Map;
 import java.util.UUID;
 
 public class SplitUtil {
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public static String generateUUID() {
         return UUID.randomUUID().toString().replace("-", "").substring(32);

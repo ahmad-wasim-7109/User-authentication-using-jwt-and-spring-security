@@ -10,10 +10,9 @@ import java.util.Optional;
 
 @Repository
 public interface GroupRepository extends JpaRepository<Group, String> {
-    void deleteById(String id);
 
     @Query("SELECT g FROM Group g JOIN GroupMember gm ON gm.groupMemberId.group.id = g.id where gm.groupMemberId.memberEmail = ?1")
     List<Group> findAllByUserId(String email);
 
-    Optional<Group> findByIdAndIsDeleted(String groupId, boolean b);
+    Optional<Group> findByIdAndIsDeleted(String groupId, boolean isDeleted);
 }
