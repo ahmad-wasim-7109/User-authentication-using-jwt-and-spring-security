@@ -65,7 +65,7 @@ Split Buddy uses **Redis** as an in-memory store for:
 
 | Component       | Description                                       |
 |-----------------|---------------------------------------------------|
-| Java 17+        | Core language                                     |
+| Java 17        | Core language                                      |
 | Spring Boot     | Application framework                             |
 | Spring Security | Authentication and authorization                  |
 | JWT             | Token-based stateless session management          |
